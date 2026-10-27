@@ -29,6 +29,7 @@ including line, word, character, and common-word counts.
 
 ## Operations
 
+- Install/activate after the first push: `python3 automation/install_schedule.py`
 - Run manually: `python3 automation/daily.py --now`
 - Logs: `.daily/scheduler.log`, `.daily/scheduler-error.log`, and daily attempt logs.
 - State: `.daily/YYYY-MM-DD.json` records attempts and successful pushes.

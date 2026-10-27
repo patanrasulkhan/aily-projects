@@ -105,7 +105,7 @@ Use only .py .md .json .txt .csv files. Do not create hidden files or symlinks.
                 run([codex, 'exec', '--sandbox', 'workspace-write',
                      '-c', 'approval_policy="never"', '-c', 'sandbox_workspace_write.network_access=false',
                      '--skip-git-repo-check', '--cd', str(work), prompt],
-                    cwd=work, timeout=1800, env=env, stdout=log, stderr=subprocess.STDOUT)
+                    cwd=work, timeout=1800, env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
             validate(work)
             shutil.copytree(work, target)
             git('add', '--', str(target.relative_to(ROOT)))
