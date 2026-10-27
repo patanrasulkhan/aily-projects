@@ -1,41 +1,69 @@
-# Daily Projects
+# Daylight
 
-One new useful small project per day, each in `projects/YYYY-MM-DD/` with its
-own README, runnable Python CLI, and tests. Projects use Python's standard
-library and synthetic example data. Start by browsing the projects folder.
+A calm personal workspace for tasks, habits, notes, and focused time.
 
-## Schedule
+**Live app:** https://patanrasulkhan.github.io/aily-projects/
 
-The Mac scheduler checks at 9:00 AM and every 15 minutes thereafter. The runner
-uses America/New_York to allow one completed project per date after 9 AM,
-including weekends and daylight-saving changes. If asleep at the scheduled
-check, it can catch up when awake. It does not backfill days the Mac was off.
+This is one growing app. The daily Mac automation now improves Daylight instead
+of creating a different small project each day. Previous CLI projects remain in
+`projects/` for reference.
 
-The Mac must be signed in, online, and have working Codex login and GitHub SSH
-access. Codex generation uses your existing ChatGPT/Codex allowance. No API
-key or paid third-party service is configured. Generation is limited to two
-attempts per date, 30 minutes each; failed pushes retry on subsequent checks.
-Success depends on connectivity, authentication, allowance, and passing tests.
+## What you can do
 
-Automation uses macOS launchd, not a cloud-hosted scheduled task. The code
-agent runs in a workspace-write sandbox with shell network access disabled.
-The outer runner handles only Git synchronization and publishing to this
-repository. It stops if local changes or a different remote are detected.
+- Plan tasks in a board with projects, priorities, due dates, descriptions, and drag/drop.
+- Check in on daily habits and track streaks and the last seven days.
+- Write, pin, and search notes with autosave.
+- Run a 25-minute focus session, 50-minute deep-work session, or five-minute break.
+- Pause/resume timers across reloads and see completed focus sessions.
+- Search your workspace and export/import versioned JSON backups.
 
-## First project
+The first visit displays **clearly labeled sample data**. Choose **Start fresh**
+to begin your own workspace. Your data is stored in this browser only. There is
+no account, server storage, cross-device sync, SMS integration, or external API.
+Export a backup before clearing browser data. Browser timers can run late while
+a device sleeps; the app reconciles elapsed time when it runs again.
 
-[Text Stats](projects/2026-10-26/README.md): inspect text from files or stdin,
-including line, word, character, and common-word counts.
+## Daily build → test → push → deploy
 
-## Operations
+Every day after **9:00 AM America/New_York**, the local Mac scheduler:
 
-- Install/activate after the first push: `python3 automation/install_schedule.py`
-- Run manually: `python3 automation/daily.py --now`
-- Logs: `.daily/scheduler.log`, `.daily/scheduler-error.log`, and daily attempt logs.
-- State: `.daily/YYYY-MM-DD.json` records attempts and successful pushes.
+1. Reads ROADMAP.md and the current app.
+2. Implements one meaningful finished improvement in an isolated candidate folder.
+3. Runs the trusted static/syntax checks and the full JavaScript regression suite
+   inside a workspace sandbox. It preserves the existing test suite.
+4. Commits only app, tests, roadmap, and changelog changes and pushes to `main`.
+5. GitHub Actions repeats the checks and publishes `web/` to GitHub Pages only
+   after tests pass. The last successful deployment remains live on test failure.
+
+The Mac must be signed in and online with working Codex login and GitHub SSH.
+The scheduler checks every 15 minutes to catch up when awake. It does not backfill
+whole days the Mac was off. Generation uses the existing Codex allowance: up to
+2 attempts of 60 minutes per date. A failed push is retried without regenerating.
+A GitHub deployment can still fail due to hosting/account outages; check Actions.
+Logs and state are local and ignored under `.daily/`.
+
+## Develop and test
+
+No package dependencies or build step are required. Serve the repository locally:
+
+```sh
+python3 -m http.server 8080 --directory web
+python3 automation/verify.py
+python3 -m unittest discover -s tests -v
+```
+
+JavaScript tests use Node.js on CI or the built-in JavaScriptCore runtime on
+macOS. HTML/CSS/JS in `web/` are deployed as static files. Keep all asset URLs
+relative so the app works under the `/aily-projects/` path.
+
+## Schedule operations
+
+- Install/activate: `python3 automation/install_schedule.py`
+- Run manually before 9 AM: `python3 automation/daily.py --now`
 - Pause: `launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.khan.daily-projects.plist`
 - Resume: `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.khan.daily-projects.plist`
+- Logs: `.daily/scheduler.log`, `.daily/scheduler-error.log`, daily attempt logs
+- State: `.daily/daylight-YYYY-MM-DD.json`
 
-Keep this folder in its installed location or update the launchd plist paths.
-Completed daily projects are automatically committed and pushed to the public
-GitHub repository patanrasulkhan/aily-projects. No deployments, messages, or changes to the calendar/SMS bots are made.
+Daily agents cannot change the scheduler, trusted verifier, or deployment
+workflow. Changes to those files require an explicit maintenance session.

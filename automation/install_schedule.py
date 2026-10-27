@@ -1,4 +1,4 @@
-"""Install the daily local macOS schedule after the first GitHub push."""
+"""Install the daily Daylight improvement schedule."""
 import os
 from pathlib import Path
 import plistlib
@@ -43,7 +43,7 @@ def main():
     subprocess.run(['launchctl', 'bootout', domain, str(target)], capture_output=True)
     subprocess.run(['launchctl', 'bootstrap', domain, str(target)], check=True)
     subprocess.run(['launchctl', 'print', domain + '/' + LABEL], check=True)
-    print('Active: one project daily after 9 AM America/New_York, with 15-minute retry checks.')
+    print('Active: Daylight improvements daily after 9 AM America/New_York, with tested pushes and Pages deployment.')
 
 
 if __name__ == '__main__':

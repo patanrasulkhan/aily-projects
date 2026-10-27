@@ -1,0 +1,46 @@
+name: Test and deploy Daylight
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: daylight-pages-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify app and regression tests
+        run: python3 automation/verify.py
+      - name: Verify scheduler
+        run: python3 -m unittest discover -s tests -v
+      - name: Stamp release
+        run: python3 -c 'import json,os,pathlib; pathlib.Path("web/release.json").write_text(json.dumps({"commit":os.environ["GITHUB_SHA"]}))'
+      - uses: actions/upload-pages-artifact@v4
+        if: github.event_name != 'pull_request'
+        with:
+          path: web
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy tested app
+        id: deployment
+        uses: actions/deploy-pages@v4

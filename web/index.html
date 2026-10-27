@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Daylight: a calm personal workspace for tasks, habits, notes, and focused time. Your data stays in your browser.">
+<meta name="theme-color" content="#f6f5f1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; form-action 'self'">
+<title>Daylight — Your space to make progress</title>
+<link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css">
+<script defer src="core.js"></script><script defer src="app.js"></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to workspace</a>
+<aside class="sidebar">
+<a class="brand" href="#overview" aria-label="Daylight home"><span class="brand-icon">✳</span> daylight<span class="brand-dot">.</span></a>
+<div class="workspace-label">YOUR WORKSPACE</div>
+<nav aria-label="Main navigation">
+<a href="#overview" data-view="overview"><span aria-hidden="true">◫</span> Overview</a>
+<a href="#tasks" data-view="tasks"><span aria-hidden="true">☑</span> Tasks <b id="task-badge">0</b></a>
+<a href="#habits" data-view="habits"><span aria-hidden="true">◉</span> Habits</a>
+<a href="#notes" data-view="notes"><span aria-hidden="true">▤</span> Notes</a>
+<a href="#focus" data-view="focus"><span aria-hidden="true">◷</span> Focus timer</a>
+</nav>
+<div class="sidebar-bottom"><div class="small-sun">✴</div><h3>A little, every day.</h3><p>Big things begin with small, intentional steps.</p><button class="text-button" data-action="demo">Try a sample workspace ↗</button></div>
+<button class="profile" data-action="settings"><span class="avatar">Y</span><span><strong>Your personal space</strong><small>Saved on this device</small></span><span aria-hidden="true">⚙</span></button>
+</aside>
+<div class="shell">
+<header class="topbar"><div class="breadcrumb">My workspace <span>/</span> <strong id="breadcrumb">Overview</strong></div><div class="top-tools"><label class="search"><span aria-hidden="true">⌕</span><input id="global-search" type="search" placeholder="Find a task or note…" aria-label="Find a task or note"></label><button class="icon-button" data-action="settings" aria-label="Backup and settings">⚙</button><span class="avatar small">Y</span></div></header>
+<main id="main" tabindex="-1"></main>
+<footer>Made for a little more clarity. <span>✦</span> Your data stays in your browser.</footer>
+</div>
+<dialog id="editor" aria-labelledby="dialog-title"><form id="editor-form"><div class="dialog-top"><h2 id="dialog-title">New task</h2><button type="button" data-action="close-dialog" class="icon-button" aria-label="Close dialog">×</button></div><div id="editor-fields"></div><div class="dialog-actions"><button type="button" class="button secondary" data-action="close-dialog">Cancel</button><button type="submit" class="button primary">Save</button></div></form></dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+</body>
+</html>
