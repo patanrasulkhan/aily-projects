@@ -37,5 +37,5 @@ including line, word, character, and common-word counts.
 - Resume: `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.khan.daily-projects.plist`
 
 Keep this folder in its installed location or update the launchd plist paths.
-Completed daily projects are automatically committed and pushed to private
-GitHub. No deployments, messages, or changes to the calendar/SMS bots are made.
+Completed daily projects are automatically committed and pushed to the public
+GitHub repository patanrasulkhan/aily-projects. No deployments, messages, or changes to the calendar/SMS bots are made.

@@ -12,7 +12,7 @@ from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[1]
 STATE = ROOT / '.daily'
-REMOTE = 'git@github.com:patanrasulkhan/daily-projects.git'
+REMOTE = 'git@github.com:patanrasulkhan/aily-projects.git'
 
 
 def run(args, cwd=ROOT, timeout=120, **kwargs):
@@ -64,6 +64,8 @@ def main(force=False):
             return
         if git('remote', 'get-url', 'origin') != REMOTE:
             raise RuntimeError('Unexpected remote; stopping')
+        if git('branch', '--show-current') != 'main':
+            raise RuntimeError('Switch back to main before running the scheduler')
         if git('status', '--porcelain'):
             raise RuntimeError('Local changes found; leaving them untouched')
         # Retry previously committed but unpushed work before making anything new.
@@ -100,7 +102,7 @@ Use only .py .md .json .txt .csv files. Do not create hidden files or symlinks.
                 raise RuntimeError('Codex CLI not found')
             env = dict(os.environ, PYTHONDONTWRITEBYTECODE='1')
             with (STATE / (day + f'-attempt-{attempts + 1}.log')).open('w') as log:
-                run([codex, 'exec', '--sandbox', 'workspace-write',
+                run([codex, 'exec', '--ignore-user-config', '--sandbox', 'workspace-write',
                      '-c', 'approval_policy="never"', '-c', 'sandbox_workspace_write.network_access=false',
                      '--skip-git-repo-check', '--cd', str(work), prompt],
                     cwd=work, timeout=1800, env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
