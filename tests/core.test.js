@@ -33,3 +33,95 @@ test('malformed records and duplicate IDs are dropped',()=>{const s={...C.empty(
 test('backup rejects excessive record counts',()=>{const s=C.empty();s.habits=Array(101).fill({id:'x',title:'Read',days:[]});throws(()=>C.normalize(s));});
 test('invalid timer from backup is discarded',()=>{const s=C.empty();s.timer={id:'bad',duration:1,remaining:-1,endAt:null};eq(C.normalize(s).timer,null);});
 log('DAYLIGHT_TESTS_PASSED='+passed);
+
+// Task views use the same calendar-aware selection without changing stored data.
+function dueFixture(){
+  let s=C.empty();
+  for(const t of [
+    {title:'Earlier',due:'2026-10-26',priority:'high',project:'Work',status:'doing'},
+    {title:'Today',due:'2026-10-27',priority:'medium',project:'Work'},
+    {title:'Tomorrow',due:'2026-10-28'},
+    {title:'Unscheduled'},
+    {title:'Finished earlier',due:'2026-10-26',status:'done'},
+    {title:'Finished today',due:'2026-10-27',status:'done'}
+  ])s=C.addTask(s,t,fixed);
+  return s;
+}
+const taskDay=new Date(2026,9,27,0,5);
+test('overdue and today are distinct and exclude completed and undated tasks',()=>{
+  const s=dueFixture();
+  eq(C.filterTasks(s,{due:'overdue'},taskDay).map(t=>t.title),['Earlier']);
+  eq(C.filterTasks(s,{due:'today'},taskDay).map(t=>t.title),['Today']);
+  eq(C.filterTasks(s,{due:'attention'},taskDay).map(t=>t.title),['Earlier','Today']);
+  eq(C.filterTasks(s,{due:''},taskDay).length,6);
+});
+test('due filters intersect search, priority, project and status',()=>{
+  const s=dueFixture();
+  eq(C.filterTasks(s,{due:'attention',query:'EAR',priority:'high',project:'Work',status:'doing'},taskDay).map(t=>t.title),['Earlier']);
+  eq(C.filterTasks(s,{due:'today',priority:'high'},taskDay),[]);
+  eq(C.filterTasks(s,{due:'overdue',project:'Personal'},taskDay),[]);
+  eq(C.filterTasks(s,{due:'attention',status:'done'},taskDay),[]);
+});
+test('due filtering respects local calendar boundaries including leap days',()=>{
+  let s=C.addTask(C.empty(),{title:'Leap day',due:'2028-02-29'},fixed);
+  eq(C.filterTasks(s,{due:'today'},new Date(2028,1,29,23,59)).length,1);
+  eq(C.filterTasks(s,{due:'overdue'},new Date(2028,2,1,0,0)).length,1);
+  eq(C.filterTasks(s,{due:'today'},new Date(2028,2,1,0,0)).length,0);
+  s=C.addTask(s,{title:'Year end',due:'2027-12-31'},fixed);
+  eq(C.filterTasks(s,{due:'overdue'},new Date(2028,0,1)).map(t=>t.title),['Year end']);
+});
+test('completing and reopening a filtered task updates membership',()=>{
+  let s=dueFixture(),id=s.tasks[0].id;
+  s=C.updateTask(s,id,{status:'done'},taskDay);
+  eq(C.filterTasks(s,{due:'overdue'},taskDay).length,0);
+  s=C.updateTask(s,id,{status:'todo'},taskDay);
+  eq(C.filterTasks(s,{due:'overdue'},taskDay)[0].id,id);
+});
+test('filtering is immutable and version one backups retain all tasks',()=>{
+  const s=dueFixture(),before=JSON.stringify(s);
+  C.filterTasks(s,{due:'attention'},taskDay).reverse();
+  eq(JSON.stringify(s),before);
+  eq(C.normalize(JSON.parse(before)),s);
+  eq(C.filterTasks(s,{today:true},taskDay),C.filterTasks(s,{due:'attention'},taskDay));
+});
+
+// Minimal browser boundary: exercise actual UI events without a DOM dependency.
+function taskBrowser(){
+  const source=typeof require==='function'?require('fs').readFileSync('web/app.js','utf8'):readFile('web/app.js');
+  const handlers={},nodes={};let saved=0;
+  const node=selector=>nodes[selector]||(nodes[selector]={value:'',textContent:'',innerHTML:'',focus(){},classList:{add(){},remove(){},toggle(){}}});
+  const doc={querySelector:node,querySelectorAll(){return [];},addEventListener(name,fn){handlers[name]=fn;}};
+  const loc={hash:'#tasks'},workspace=dueFixture();
+  workspace.tasks[0].title='<img src=x onerror=bad>';
+  workspace.tasks[0].description='<script>bad</script>';
+  new Function('window','document','localStorage','location','setInterval','setTimeout','clearTimeout',source)(
+    {Daylight:C,addEventListener(){}},doc,{getItem(){return JSON.stringify(workspace);},setItem(){saved++;}},loc,()=>{},()=>{},()=>{});
+  return {html:()=>node('#main').innerHTML,saves:()=>saved,
+    click(dataset){handlers.click({target:{closest(selector){return selector==='[data-action]'?{dataset}:null;}}});},
+    change(target){handlers.change({target});}};
+}
+test('task view switching retains filters, escapes content, and never saves workspace',()=>{
+  const b=taskBrowser();assert(b.html().includes('class="board"'));
+  b.change({id:'priority-filter',value:'high',dataset:{}});
+  b.click({action:'task-view',taskView:'list'});
+  assert(b.html().includes('aria-label="Task list"'));
+  assert(b.html().includes('1 of 6 tasks'));
+  assert(b.html().includes('&lt;img src=x onerror=bad&gt;'));
+  assert(b.html().includes('&lt;script&gt;bad&lt;/script&gt;'));
+  assert(!b.html().includes('<img'));
+  assert(b.html().includes('data-task-check='));assert(b.html().includes('data-task-status='));
+  b.click({action:'task-view',taskView:'board'});
+  assert(b.html().includes('draggable="true"'));assert(b.html().includes('data-drop="doing"'));
+  assert(b.html().includes('1 of 6 tasks'));eq(b.saves(),0);
+});
+test('due filter persists across board and list including empty results',()=>{
+  const b=taskBrowser();
+  b.change({id:'due-filter',value:'today',dataset:{}});
+  b.change({id:'project-filter',value:'Missing project',dataset:{}});
+  b.click({action:'task-view',taskView:'list'});
+  assert(b.html().includes('No tasks match'));assert(b.html().includes('0 of 6 tasks'));
+  assert(b.html().includes('value="today" selected'));
+  b.click({action:'task-view',taskView:'board'});
+  assert(b.html().includes('value="today" selected'));eq(b.saves(),0);
+});
+log('DAYLIGHT_EXTENDED_TESTS_PASSED='+passed);
