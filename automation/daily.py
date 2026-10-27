@@ -41,8 +41,7 @@ def validate(folder):
             raise RuntimeError('Hidden generated files are not allowed')
     if not (folder / 'README.md').is_file() or not list(folder.glob('test_*.py')):
         raise RuntimeError('A README and tests are required')
-    # Run inside the Codex workspace sandbox, not an unrestricted shell.
-    # The outer validator checks the result file written by that sandboxed run.
+    # Require the result written by the fixed sandboxed unittest runner.
     result = json.loads((folder / 'validation.json').read_text())
     if result.get('tests_run', 0) < 3 or result.get('successful') is not True:
         raise RuntimeError('At least three passing tests are required')
@@ -88,9 +87,8 @@ personal data, Git operations, paid services, or changes outside this workspace.
 Create a polished practical utility, a README with run examples and limitations,
 and at least three meaningful unittest tests in test_*.py at the workspace root.
 Keep it small (under 15 files), dependency-free, and finish in this run.
-Run tests with PYTHONDONTWRITEBYTECODE=1. Fix failures. Finally use unittest
-TestLoader().discover('.') and TextTestRunner().run(suite) to execute them and
-write validation.json with tests_run=result.testsRun and successful=result.wasSuccessful().
+Run tests with PYTHONDONTWRITEBYTECODE=1 and fix failures. Do not create
+validation.json; the scheduler runs an independent test check after generation.
 Use only .py .md .json .txt .csv files. Do not create hidden files or symlinks.
 '''
             codex = os.environ.get('DAILY_CODEX') or shutil.which('codex')
@@ -106,6 +104,17 @@ Use only .py .md .json .txt .csv files. Do not create hidden files or symlinks.
                      '-c', 'approval_policy="never"', '-c', 'sandbox_workspace_write.network_access=false',
                      '--skip-git-repo-check', '--cd', str(work), prompt],
                     cwd=work, timeout=1800, env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
+                check = ("import json, pathlib, unittest; "
+                         "suite=unittest.TestLoader().discover('.'); "
+                         "result=unittest.TextTestRunner(verbosity=2).run(suite); "
+                         "pathlib.Path('validation.json').write_text(json.dumps("
+                         "{'tests_run':result.testsRun,'successful':result.wasSuccessful()})); "
+                         "raise SystemExit(0 if result.wasSuccessful() and result.testsRun>=3 else 1)")
+                run([codex, 'sandbox', '--cd', str(work),
+                     '-c', 'sandbox_mode="workspace-write"',
+                     '-c', 'sandbox_workspace_write.network_access=false',
+                     '--', sys.executable, '-c', check], cwd=work, timeout=120,
+                    env=env, stdin=subprocess.DEVNULL, stdout=log, stderr=subprocess.STDOUT)
             validate(work)
             shutil.copytree(work, target)
             git('add', '--', str(target.relative_to(ROOT)))
