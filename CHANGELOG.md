@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-10-28 — Habit editing and weekly goals
+
+Added habit name editing and weekly targets from one to seven days. Habit
+cards show labeled native progress bars, goal-met feedback, and the date range
+for the current Monday–Sunday week. Each checked day counts once; future
+check-ins do not count toward current progress. Existing daily streaks,
+seven-day check-in controls, and full history are preserved. Check-in buttons
+regain keyboard focus after updates. Editing keeps the habit identity and
+history, and unsuccessful saves leave the editor open.
+
+Version 1 backups and the storage key remain compatible: older habits default
+to seven days per week without requiring a rewrite; new backups retain the
+optional weeklyTarget field. All data remains in the browser, with local
+relative assets and no new dependencies or network access.
+
+Validation: all 41 tests passed using JavaScriptCore. All 32 existing tests
+remain unchanged; nine appended tests cover legacy backups, target validation,
+immutable editing, history retention, record limits, local calendar boundaries,
+weekly progress, escaped editor fields, UI creation/editing, cancellation, and
+storage failure. UI event coverage uses a dependency-free browser harness;
+visual browser inspection was not available.
+
 ## 2026-10-27 — Task list and due-date filters
 
 Added a responsive task list alongside the existing drag/drop board. Switch

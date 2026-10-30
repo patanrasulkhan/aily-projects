@@ -125,3 +125,69 @@ test('due filter persists across board and list including empty results',()=>{
   assert(b.html().includes('value="today" selected'));eq(b.saves(),0);
 });
 log('DAYLIGHT_EXTENDED_TESTS_PASSED='+passed);
+
+// Habit goals extend version 1 without rewriting legacy check-in history.
+test('legacy habits keep their backup shape and default to seven days',()=>{
+  const s={...C.empty(),habits:[{id:'h',title:'Read',days:['2026-10-26']}]};
+  eq(C.normalize(s),s);eq(C.habitTarget(s.habits[0]),7);
+});
+test('habit editing preserves identity and every check-in without mutating input',()=>{
+  const s={...C.empty(),habits:[{id:'h',title:'Read',days:['2025-01-01','2026-10-26']}]},before=JSON.stringify(s);
+  const n=C.saveHabit(s,'h',{title:'  Read a chapter  ',weeklyTarget:'3',id:'other',days:[]});
+  eq(n.habits[0],{id:'h',title:'Read a chapter',days:s.habits[0].days,weeklyTarget:3});
+  eq(JSON.stringify(s),before);const restored=C.normalize(JSON.parse(JSON.stringify(n)));eq(restored.habits[0].weeklyTarget,3);eq(restored.habits[0].days,n.habits[0].days);
+});
+test('habit creation validates names, targets and limits',()=>{
+  for(const weeklyTarget of [0,8,1.5,'no',null,Infinity])throws(()=>C.saveHabit(C.empty(),'',{title:'Read',weeklyTarget}));
+  throws(()=>C.saveHabit(C.empty(),'',{title:' ',weeklyTarget:3}));
+  throws(()=>C.saveHabit(C.empty(),'missing',{title:'Read',weeklyTarget:3}));
+  throws(()=>C.saveHabit({...C.empty(),habits:Array(100).fill({id:'h'})},'',{title:'Read',weeklyTarget:3}));
+  const h=C.saveHabit(C.empty(),'',{title:'x'.repeat(110),weeklyTarget:1}).habits[0];eq(h.title.length,100);eq(h.days,[]);eq(h.weeklyTarget,1);
+});
+test('backup targets are bounded and malformed targets fall back safely',()=>{
+  for(const target of [1,7,0,8,2.5,'3',null]){
+    const s=C.normalize({...C.empty(),habits:[{id:'h',title:'Read',days:['2026-10-26'],weeklyTarget:target}]});
+    eq(C.habitTarget(s.habits[0]),target===1?1:7);eq(s.habits[0].days,['2026-10-26']);
+  }
+});
+test('weekly goals use Monday through Sunday and exclude future check-ins',()=>{
+  const h={weeklyTarget:2,days:['2026-10-25','2026-10-26','2026-10-28','2026-10-28','2026-10-29','2026-11-01','bad']};
+  eq(C.habitWeek(h,new Date(2026,9,28,0,1)),{start:'2026-10-26',end:'2026-11-01',count:2,target:2,met:true});
+  eq(C.habitWeek(h,new Date(2026,10,1,23,59)).count,4);
+  eq(C.habitWeek(h,new Date(2026,10,2)).count,0);
+});
+test('weekly boundaries cross years and leap days using local dates',()=>{
+  eq(C.habitWeek({days:['2027-12-31','2028-01-01']},new Date(2028,0,2)).start,'2027-12-27');
+  eq(C.habitWeek({days:['2028-02-29'],weeklyTarget:1},new Date(2028,2,1)).count,1);
+  eq(C.habitWeek({days:['2028-02-29']},new Date(2028,2,6)).count,0);
+});
+test('check-in toggles change weekly progress and retain daily streak semantics',()=>{
+  let s=C.saveHabit(C.empty(),'',{title:'Read',weeklyTarget:1}),id=s.habits[0].id;
+  s=C.toggleHabit(s,id,'2026-10-28');assert(C.habitWeek(s.habits[0],new Date(2026,9,28)).met);
+  eq(C.streak(s.habits[0],new Date(2026,9,28)),1);
+  s=C.toggleHabit(s,id,'2026-10-28');eq(C.habitWeek(s.habits[0],new Date(2026,9,28)).count,0);
+});
+function habitBrowser(){
+  const source=typeof require==='function'?require('fs').readFileSync('web/app.js','utf8'):readFile('web/app.js');
+  const handlers={},nodes={};let stored={...C.empty(),habits:[{id:'h',title:'<Read & reflect>',days:['2026-10-26'],weeklyTarget:3}]},saves=0,fail=false;
+  const node=s=>nodes[s]||(nodes[s]={value:'',textContent:'',innerHTML:'',focus(){},showModal(){this.open=true;},close(){this.open=false;},classList:{add(){},remove(){},toggle(){}}});
+  new Function('window','document','localStorage','location','setInterval','setTimeout','clearTimeout','FormData',source)(
+    {Daylight:C,addEventListener(){}},{querySelector:node,querySelectorAll(){return [];},addEventListener(k,fn){handlers[k]=fn;}},
+    {getItem(){return JSON.stringify(stored);},setItem(k,v){if(fail)throw new Error('Full');stored=JSON.parse(v);saves++;}},
+    {hash:'#habits'},()=>{},()=>{},()=>{},function(form){return Object.entries(form.values);});
+  return {node,state:()=>stored,saves:()=>saves,fail(){fail=true;},click(dataset){handlers.click({target:{closest(s){return s==='[data-action]'?{dataset}:null;}}});},submit(values){handlers.submit({preventDefault(){},target:{id:'editor-form',values}});}};
+}
+test('habit editor prefills escaped names and saves goals without losing history',()=>{
+  const b=habitBrowser();assert(b.node('#main').innerHTML.includes('<progress'));assert(b.node('#main').innerHTML.includes('Monday–Sunday'));
+  b.click({action:'edit-habit',id:'h'});assert(b.node('#editor-fields').innerHTML.includes('&lt;Read &amp; reflect&gt;'));
+  assert(b.node('#editor-fields').innerHTML.includes('value="3" selected'));eq(b.saves(),0);
+  b.submit({title:'Reflect',weeklyTarget:'2'});eq(b.state().habits[0].title,'Reflect');eq(b.state().habits[0].weeklyTarget,2);
+  eq(b.state().habits[0].days,['2026-10-26']);eq(b.node('#editor').open,false);
+  b.click({action:'habit'});b.submit({title:'Walk',weeklyTarget:'4'});eq(b.state().habits.length,2);
+});
+test('cancelled, invalid and failed habit edits preserve stored data',()=>{
+  const b=habitBrowser(),before=JSON.stringify(b.state());b.click({action:'edit-habit',id:'h'});b.click({action:'close-dialog'});eq(b.saves(),0);
+  b.click({action:'edit-habit',id:'h'});b.submit({title:' ',weeklyTarget:'3'});eq(b.saves(),0);eq(b.node('#editor').open,true);
+  b.fail();b.submit({title:'Changed',weeklyTarget:'2'});eq(JSON.stringify(b.state()),before);eq(b.node('#editor').open,true);
+});
+log('DAYLIGHT_HABIT_TESTS_PASSED='+passed);

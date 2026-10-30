@@ -16,7 +16,7 @@ in the user's browser and existing backups must remain compatible.
 ## Next, in priority order
 
 - [x] Add task list view and an overdue/today filter, preserving board functionality (2026-10-27)
-- [ ] Add habit editing and weekly completion targets
+- [x] Add habit editing and weekly completion targets (2026-10-28)
 - [ ] Add keyboard shortcuts with a discoverable accessible shortcut guide
 - [ ] Add note folders or tags and note-specific search
 - [ ] Add focus session history by week with a clear accessible chart
@@ -31,7 +31,23 @@ add regression coverage, and describe the change in CHANGELOG.md. Avoid busywork
 new dependencies, remote APIs, accounts, payments, or storing data in the repository.
 Keep the current UI polished and responsive. Do not delete or weaken existing tests.
 
-## Latest validation — 2026-10-27
+## Latest validation — 2026-10-28
+
+Habit names and weekly targets (1–7 days) can now be edited without losing
+identity or check-in history. Habit cards show labeled progress for the local
+Monday–Sunday week, with a goal-met message. Daily streaks and seven-day
+check-in controls remain available. Legacy version 1 habits default to seven
+days; optional weeklyTarget values survive backup import/export. Storage keys,
+backup version, relative assets, and the browser-local policy are unchanged.
+
+Validation: all 41 tests passed in JavaScriptCore, with the existing 32 tests
+unchanged and nine regressions appended. Coverage includes immutable edits,
+limits and invalid targets, old/new backups, year/leap-day/week boundaries,
+future and duplicate check-ins, UI prefilling and escaping, creation, editing,
+cancellation, and failed storage writes. Browser events were exercised through
+the dependency-free test harness; no visual browser inspection was available.
+
+## Previous validation — 2026-10-27
 
 Task board and list now share search, priority, project, and due-date filters.
 Overdue, Today, and Overdue & today select unfinished dated tasks; All dates
