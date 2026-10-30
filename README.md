@@ -38,7 +38,10 @@ Every day after **9:00 AM America/New_York**, the local Mac scheduler:
 The Mac must be signed in and online with working Codex login and GitHub SSH.
 The scheduler checks every 15 minutes to catch up when awake. It does not backfill
 whole days the Mac was off. Generation uses the existing Codex allowance: up to
-2 attempts of 60 minutes per date. A failed push is retried without regenerating.
+2 attempts of 45 wall-clock minutes per date, with a 10-minute no-output
+watchdog. Child process groups are stopped on timeout, and retries wait at least
+15 minutes. The Mac is kept awake during generation (this does not override lid
+closure, manual sleep, shutdown, or lost connectivity). A failed push is retried without regenerating.
 A GitHub deployment can still fail due to hosting/account outages; check Actions.
 Logs and state are local and ignored under `.daily/`.
 
@@ -63,6 +66,8 @@ relative so the app works under the `/aily-projects/` path.
 - Pause: `launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.khan.daily-projects.plist`
 - Resume: `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.khan.daily-projects.plist`
 - Logs: `.daily/scheduler.log`, `.daily/scheduler-error.log`, daily attempt logs
+- Read-only health check: `python3 automation/daily.py --health` (never builds or publishes)
+- Timestamped lifecycle/failure events: `.daily/events.jsonl`
 - State: `.daily/daylight-YYYY-MM-DD.json`
 
 Daily agents cannot change the scheduler, trusted verifier, or deployment

@@ -35,9 +35,14 @@ def main():
         'StandardOutPath': str(logs / 'scheduler.log'),
         'StandardErrorPath': str(logs / 'scheduler-error.log'),
         'ProcessType': 'Background',
+        'ThrottleInterval': 60,
+        'ExitTimeOut': 15,
     }
-    if target.exists() and plistlib.loads(target.read_bytes()) != configuration:
-        raise SystemExit('An existing schedule differs; inspect it before replacing it: ' + str(target))
+    if target.exists():
+        old = plistlib.loads(target.read_bytes())
+        if old.get('Label') != LABEL or old.get('WorkingDirectory') != str(ROOT):
+            raise SystemExit('An unrelated schedule exists at ' + str(target))
+        (logs / 'schedule-before-update.plist').write_bytes(target.read_bytes())
     target.write_bytes(plistlib.dumps(configuration))
     domain = f'gui/{os.getuid()}'
     subprocess.run(['launchctl', 'bootout', domain, str(target)], capture_output=True)
