@@ -25,11 +25,23 @@
 <button class="profile" data-action="settings"><span class="avatar">Y</span><span><strong>Your personal space</strong><small>Saved on this device</small></span><span aria-hidden="true">⚙</span></button>
 </aside>
 <div class="shell">
-<header class="topbar"><div class="breadcrumb">My workspace <span>/</span> <strong id="breadcrumb">Overview</strong></div><div class="top-tools"><label class="search"><span aria-hidden="true">⌕</span><input id="global-search" type="search" placeholder="Find a task or note…" aria-label="Find a task or note"></label><button class="icon-button" data-action="settings" aria-label="Backup and settings">⚙</button><span class="avatar small">Y</span></div></header>
+<header class="topbar"><div class="breadcrumb">My workspace <span>/</span> <strong id="breadcrumb">Overview</strong></div><div class="top-tools"><label class="search"><span aria-hidden="true">⌕</span><input id="global-search" type="search" placeholder="Find a task or note…" aria-label="Find a task or note"></label><button class="icon-button" data-action="shortcuts" aria-label="Keyboard shortcuts" aria-keyshortcuts="Alt+Shift+K" title="Keyboard shortcuts">?</button><button class="icon-button" data-action="settings" aria-label="Backup and settings">⚙</button><span class="avatar small">Y</span></div></header>
 <main id="main" tabindex="-1"></main>
 <footer>Made for a little more clarity. <span>✦</span> Your data stays in your browser.</footer>
 </div>
 <dialog id="editor" aria-labelledby="dialog-title"><form id="editor-form"><div class="dialog-top"><h2 id="dialog-title">New task</h2><button type="button" data-action="close-dialog" class="icon-button" aria-label="Close dialog">×</button></div><div id="editor-fields"></div><div class="dialog-actions"><button type="button" class="button secondary" data-action="close-dialog">Cancel</button><button type="submit" class="button primary">Save</button></div></form></dialog>
+<dialog id="shortcuts" aria-labelledby="shortcuts-title" aria-describedby="shortcuts-description">
+<div class="dialog-top"><h2 id="shortcuts-title">Keyboard shortcuts</h2><button type="button" data-action="close-shortcuts" class="icon-button" aria-label="Close keyboard shortcuts" autofocus>×</button></div>
+<p id="shortcuts-description" class="settings-description">Hold Alt + Shift (Option + Shift on Mac), then press a key below. Shortcuts are paused while typing or while a dialog is open. Your browser or assistive technology may reserve some combinations; all actions are also available with buttons and links.</p>
+<dl class="shortcut-list">
+<div><dt>Overview / Tasks / Habits / Notes / Focus</dt><dd><kbd>1</kbd>–<kbd>5</kbd></dd></div>
+<div><dt>Find a task or note</dt><dd><kbd>S</kbd></dd></div>
+<div><dt>New task</dt><dd><kbd>T</kbd></dd></div>
+<div><dt>New habit</dt><dd><kbd>H</kbd></dd></div>
+<div><dt>New note</dt><dd><kbd>N</kbd></dd></div>
+<div><dt>Show this guide</dt><dd><kbd>K</kbd></dd></div>
+</dl><p class="settings-description">Use Tab and Shift + Tab to move between controls. Press Escape to close a dialog.</p>
+</dialog>
 <div id="toast" role="status" aria-live="polite"></div>
 </body>
 </html>

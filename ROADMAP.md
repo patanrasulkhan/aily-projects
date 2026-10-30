@@ -17,7 +17,7 @@ in the user's browser and existing backups must remain compatible.
 
 - [x] Add task list view and an overdue/today filter, preserving board functionality (2026-10-27)
 - [x] Add habit editing and weekly completion targets (2026-10-28)
-- [ ] Add keyboard shortcuts with a discoverable accessible shortcut guide
+- [x] Add keyboard shortcuts with a discoverable accessible shortcut guide (2026-10-29)
 - [ ] Add note folders or tags and note-specific search
 - [ ] Add focus session history by week with a clear accessible chart
 - [ ] Add recurrence for repeating tasks with tested calendar boundaries
@@ -31,7 +31,24 @@ add regression coverage, and describe the change in CHANGELOG.md. Avoid busywork
 new dependencies, remote APIs, accounts, payments, or storing data in the repository.
 Keep the current UI polished and responsive. Do not delete or weaken existing tests.
 
-## Latest validation — 2026-10-28
+## Latest validation — 2026-10-29
+
+Added Alt + Shift shortcuts (Option + Shift on Mac): 1–5 navigate the five
+workspace views, S focuses and selects global search, T/H/N create a task,
+habit, or note, and K opens the guide. A visible help button opens a named,
+described native modal with key references, typing rules, and Escape guidance.
+Navigation focuses the workspace; closing the guide restores its opener.
+Typing, editable controls, open dialogs, composition, repeats, and additional
+Ctrl/Command modifiers suppress shortcuts. No single-character shortcuts or
+persistence changes were introduced; version 1 backups remain compatible.
+
+Validation: all 48 tests passed in JavaScriptCore. All 41 previous tests are
+unchanged; seven appended regressions exercise navigation, search selection,
+normal creation flows, modal/editing guards, guide markup and focus restoration,
+and failed saves. Tests use the dependency-free browser boundary; native modal
+Tab trapping, Escape behavior, and visual layout were not inspected in a browser.
+
+## Previous validation — 2026-10-28
 
 Habit names and weekly targets (1–7 days) can now be edited without losing
 identity or check-in history. Habit cards show labeled progress for the local

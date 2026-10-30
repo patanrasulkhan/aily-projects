@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-10-29 — Keyboard shortcuts and accessible guide
+
+Added Alt + Shift shortcuts (Option + Shift on Mac) for view navigation (1–5),
+global search (S), new tasks (T), habits (H), notes (N), and shortcut help (K).
+A visible ? button in the top bar opens a native modal guide with an accessible
+name and description, key reference, Mac instructions, and Escape guidance.
+Closing the guide returns focus to its opener. Navigation focuses the main
+workspace; search selects the current query for replacement. Creation reuses
+the existing editors, validation, limits, and save behavior.
+
+Shortcuts leave typing and open dialogs undisturbed, ignore key repeats and
+composition, and require both modifiers without Ctrl/Command. The guide notes
+that browsers and assistive technology may reserve combinations. The local data
+policy, storage key, backup version, relative assets, and dependencies are unchanged.
+
+Validation: all 48 tests passed in JavaScriptCore. The original 41 tests remain
+unchanged; seven appended tests cover navigation without writes, search focus,
+creation and backup compatibility, editing/modal guards, guide focus restoration
+and accessible markup, and failed saves. Browser boundary tests exercise actual
+app event handlers; no visual or native modal browser walkthrough was available.
+
+
 ## 2026-10-28 — Habit editing and weekly goals
 
 Added habit name editing and weekly targets from one to seven days. Habit

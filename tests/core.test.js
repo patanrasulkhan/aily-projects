@@ -191,3 +191,58 @@ test('cancelled, invalid and failed habit edits preserve stored data',()=>{
   b.fail();b.submit({title:'Changed',weeklyTarget:'2'});eq(JSON.stringify(b.state()),before);eq(b.node('#editor').open,true);
 });
 log('DAYLIGHT_HABIT_TESTS_PASSED='+passed);
+
+// Keyboard shortcuts exercise the shipped event handler and modal boundaries.
+function shortcutBrowser(initial){
+  const source=typeof require==='function'?require('fs').readFileSync('web/app.js','utf8'):readFile('web/app.js');
+  const handlers={},nodes={},loc={hash:'#overview'};let stored=initial||C.empty(),saves=0,focused='',prevented=0,fail=false;
+  const node=s=>nodes[s]||(nodes[s]={value:'',innerHTML:'',textContent:'',open:false,
+    focus(){focused=s;doc.activeElement=this;},select(){this.selected=true;},
+    showModal(){this.open=true;},close(){this.open=false;if(this.onclose)this.onclose();},
+    addEventListener(k,fn){this['on'+k]=fn;},classList:{add(){},remove(){},toggle(){}}});
+  const doc={activeElement:null,querySelector(s){if(s==='dialog[open]')return node('#editor').open||node('#shortcuts').open?{}:null;if(s==='#note-body')return null;return node(s);},querySelectorAll(){return [];},addEventListener(k,fn){handlers[k]=fn;}};
+  new Function('window','document','localStorage','location','setInterval','setTimeout','clearTimeout','FormData',source)(
+    {Daylight:C,addEventListener(){}},doc,{getItem(){return JSON.stringify(stored);},setItem(k,v){if(fail)throw new Error('Full');stored=JSON.parse(v);saves++;}},loc,()=>{},()=>{},()=>{},function(form){return Object.entries(form.values);});
+  return {node,loc,fail(){fail=true;},focus:()=>focused,saves:()=>saves,state:()=>stored,prevented:()=>prevented,
+    key(code,extra){handlers.keydown(Object.assign({code,altKey:true,shiftKey:true,target:{closest(){return null;}},preventDefault(){prevented++;}},extra||{}));},
+    click(action){handlers.click({target:{closest(s){return s==='[data-action]'?{dataset:{action}}:null;}}});},
+    submit(values){handlers.submit({preventDefault(){},target:{id:'editor-form',values}});}};
+}
+test('shortcuts navigate every view, focus main, and leave persistence untouched',()=>{
+  const b=shortcutBrowser();['overview','tasks','habits','notes','focus'].forEach((view,i)=>{b.key('Digit'+(i+1));eq(b.loc.hash,view);eq(b.focus(),'#main');});
+  eq(b.saves(),0);eq(b.prevented(),5);
+});
+test('search shortcut focuses and selects the existing search without saving',()=>{
+  const b=shortcutBrowser();b.node('#global-search').value='Previous query';b.key('KeyS');eq(b.focus(),'#global-search');assert(b.node('#global-search').selected);eq(b.node('#global-search').value,'Previous query');eq(b.saves(),0);
+});
+test('creation shortcuts use existing editors and normal version one saves',()=>{
+  const b=shortcutBrowser();b.key('KeyT');assert(b.node('#editor').open);b.submit({title:'Keyboard task'});eq(b.state().tasks[0].title,'Keyboard task');
+  b.key('KeyH');assert(b.node('#editor-fields').innerHTML.includes('weeklyTarget'));b.submit({title:'Keyboard habit',weeklyTarget:'2'});eq(b.state().habits[0].weeklyTarget,2);
+  b.key('KeyN');eq(b.loc.hash,'notes');eq(b.state().notes.length,1);eq(b.focus(),'#note-title');eq(C.normalize(b.state()),b.state());eq(b.saves(),3);
+});
+test('typing, composition, repeats, reserved modifiers and open dialogs suppress shortcuts',()=>{
+  const b=shortcutBrowser();
+  for(const extra of [{altKey:false},{shiftKey:false},{ctrlKey:true},{metaKey:true},{repeat:true},{isComposing:true},{defaultPrevented:true},{target:{isContentEditable:true}},{target:{closest(){return {};}}}])b.key('KeyN',extra);
+  b.key('KeyX');eq(b.prevented(),0);eq(b.saves(),0);
+  b.click('task');b.key('KeyN');b.key('Digit2');eq(b.loc.hash,'#overview');eq(b.saves(),0);assert(b.node('#editor').open);
+  b.click('close-dialog');b.key('KeyN');eq(b.state().notes.length,1);
+});
+test('guide opens from help or shortcut, blocks actions, and restores opener focus',()=>{
+  const b=shortcutBrowser();b.node('help-button').focus();b.click('shortcuts');assert(b.node('#shortcuts').open);b.key('KeyN');eq(b.saves(),0);
+  b.click('close-shortcuts');eq(b.focus(),'help-button');b.key('KeyK');assert(b.node('#shortcuts').open);
+  // Native Escape emits close, using the same focus-restoration path.
+  b.node('#shortcuts').close();eq(b.focus(),'help-button');eq(b.saves(),0);
+});
+test('guide markup exposes its name, description, key reference and visible entry point',()=>{
+  const html=typeof require==='function'?require('fs').readFileSync('web/index.html','utf8'):readFile('web/index.html');
+  assert(html.includes('data-action="shortcuts"'));assert(html.includes('aria-keyshortcuts="Alt+Shift+K"'));
+  assert(html.includes('aria-labelledby="shortcuts-title" aria-describedby="shortcuts-description"'));
+  for(const key of ['S','T','H','N','K'])assert(html.includes('<kbd>'+key+'</kbd>'));
+  assert(html.includes('Escape to close'));assert(html.includes('Option + Shift on Mac'));
+});
+log('DAYLIGHT_SHORTCUT_TESTS_PASSED='+passed);
+test('shortcut creation failures preserve workspace and keep editors available',()=>{
+  const b=shortcutBrowser(),before=JSON.stringify(b.state());b.fail();b.key('KeyN');eq(JSON.stringify(b.state()),before);eq(b.loc.hash,'#overview');
+  b.key('KeyT');b.submit({title:'Unsaved task'});assert(b.node('#editor').open);eq(JSON.stringify(b.state()),before);eq(b.saves(),0);
+});
+log('DAYLIGHT_SHORTCUT_FAILURE_TESTS_PASSED='+passed);
