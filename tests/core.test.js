@@ -246,3 +246,82 @@ test('shortcut creation failures preserve workspace and keep editors available',
   b.key('KeyT');b.submit({title:'Unsaved task'});assert(b.node('#editor').open);eq(JSON.stringify(b.state()),before);eq(b.saves(),0);
 });
 log('DAYLIGHT_SHORTCUT_FAILURE_TESTS_PASSED='+passed);
+
+// Optional note folders preserve legacy version 1 backups.
+function noteFixture(){return {...C.empty(),notes:[
+  {id:'a',title:'Garden plan',body:'Plant café herbs',pinned:false,updatedAt:'2026-10-30T12:00:00Z',folder:'Home'},
+  {id:'b',title:'Reading',body:'Garden essays',pinned:true,updatedAt:'2026-10-29T12:00:00Z',folder:'Ideas'},
+  {id:'c',title:'Loose thought',body:'A quiet walk',pinned:false,updatedAt:'2026-10-28T12:00:00Z'}]};}
+test('note folders round trip while old backups retain their shape',()=>{
+  const legacy={...C.empty(),notes:[noteFixture().notes[2]]};eq(C.normalize(legacy),legacy);
+  const s=noteFixture();eq(C.normalize(JSON.parse(JSON.stringify(s))),s);eq(s.version,1);
+});
+test('note folder normalization trims bounds and discards malformed values',()=>{
+  for(const value of [null,[],{},42,'   ']){const s=noteFixture();s.notes[0].folder=value;assert(!('folder' in C.normalize(s).notes[0]));}
+  const s=noteFixture();s.notes[0].folder='  '+'x'.repeat(90)+'  ';eq(C.normalize(s).notes[0].folder,'x'.repeat(60));
+});
+test('note search combines title and body with exact folders and Unfiled',()=>{
+  const s=noteFixture(),before=JSON.stringify(s);
+  eq(C.filterNotes(s,{query:' GARDEN '}).map(n=>n.id),['b','a']);
+  eq(C.filterNotes(s,{query:'CAFÉ',folder:'folder:Home'}).map(n=>n.id),['a']);
+  eq(C.filterNotes(s,{query:'garden',folder:'folder:Ideas'}).map(n=>n.id),['b']);
+  eq(C.filterNotes(s,{folder:'unfiled'}).map(n=>n.id),['c']);
+  eq(C.filterNotes(s,{query:'garden',folder:'unfiled'}),[]);
+  s.notes[0].folder='unfiled';eq(C.filterNotes(s,{folder:'folder:unfiled'}).map(n=>n.id),['a']);
+  s.notes[0].folder='Home';C.filterNotes(s).reverse();eq(JSON.stringify(s),before);
+});
+function noteBrowser(initial){
+  const source=typeof require==='function'?require('fs').readFileSync('web/app.js','utf8'):readFile('web/app.js');
+  let stored=initial||noteFixture(),saves=0,fail=false,focused='',html='',pending;
+  const handlers={},nodes={};let hash='#notes';const loc={get hash(){return hash;},set hash(value){hash=value.startsWith('#')?value:'#'+value;}};
+  const decode=s=>s.replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
+  const node=s=>nodes[s]||(nodes[s]={value:'',textContent:'',innerHTML:'',selectionStart:0,focus(){focused=s;},setSelectionRange(a){this.selectionStart=a;},classList:{add(){},remove(){},toggle(){}}});
+  Object.defineProperty(node('#main'),'innerHTML',{get(){return html;},set(value){html=value;for(const id of ['note-title','note-body','note-folder','note-search']){const input=new RegExp('<input[^>]*id="'+id+'"[^>]*value="([^"]*)"').exec(html);const area=new RegExp('<textarea[^>]*id="'+id+'"[^>]*>([\\s\\S]*?)</textarea>').exec(html);node('#'+id).value=decode(input?input[1]:area?area[1]:'');}}});
+  const doc={querySelector(s){if(['#note-title','#note-body','#note-folder'].includes(s)&&!html.includes('id="'+s.slice(1)+'"'))return null;return node(s);},querySelectorAll(){return [];},addEventListener(k,fn){handlers[k]=fn;}};
+  new Function('window','document','localStorage','location','setInterval','setTimeout','clearTimeout',source)(
+    {Daylight:C,addEventListener(){}},doc,{getItem(){return JSON.stringify(stored);},setItem(k,v){if(fail)throw new Error('Full');stored=JSON.parse(v);saves++;}},loc,()=>{},fn=>{pending=fn;},()=>{pending=null;});
+  return {node,loc,html:()=>html,state:()=>stored,saves:()=>saves,focus:()=>focused,fail(value){fail=value;},tick(){if(pending)pending();},
+    input(id,value){node('#'+id).value=value;handlers.input({target:Object.assign(node('#'+id),{id})});},
+    folder(value){const t={id:'note-folder-filter',value,dataset:{}};handlers.change({target:t});return t.value;},
+    click(action,id){handlers.click({target:{closest(s){return s==='[data-action]'?{dataset:{action,id}}:null;}}});}};
+}
+test('notes expose labeled filters, escaped folders and selected states without writes',()=>{
+  const s=noteFixture();s.notes[1].folder='<Ideas & "plans">';const b=noteBrowser(s);
+  assert(b.html().includes('for="note-search"'));assert(b.html().includes('for="note-folder-filter"'));
+  assert(b.html().includes('&lt;Ideas &amp; &quot;plans&quot;&gt;'));assert(!b.html().includes('<Ideas'));
+  assert(b.html().includes('aria-pressed="true"'));assert(b.html().includes('3 of 3 notes'));eq(b.saves(),0);
+  b.input('note-search','garden');assert(b.html().includes('2 of 3 notes'));eq(b.focus(),'#note-search');
+  b.folder('folder:Home');assert(b.html().includes('1 of 3 notes'));eq(b.focus(),'#note-folder-filter');eq(b.saves(),0);
+  b.folder('unfiled');assert(b.html().includes('No notes match'));assert(!b.html().includes('id="note-body"'));
+  b.click('clear-note-filters');assert(b.html().includes('3 of 3 notes'));eq(b.focus(),'#note-search');eq(b.saves(),0);
+});
+test('note autosave retains folder text body identity and pinning through backup',()=>{
+  const b=noteBrowser();b.input('note-folder','  Work & ideas  ');b.input('note-body','Changed text');b.tick();
+  const n=b.state().notes.find(n=>n.id==='b');eq(n.folder,'Work & ideas');eq(n.body,'Changed text');assert(n.pinned);eq(n.title,'Reading');eq(C.normalize(b.state()),b.state());
+  b.input('note-folder','');b.tick();assert(!('folder' in b.state().notes.find(n=>n.id==='b')));
+});
+test('filtering flushes pending edits before switching the selected note',()=>{
+  const b=noteBrowser();b.input('note-body','Pending words');b.folder('folder:Home');
+  eq(b.state().notes.find(n=>n.id==='b').body,'Pending words');eq(b.node('#note-title').value,'Garden plan');
+  b.input('note-body','Herbs and flowers');b.input('note-search','no matches');
+  eq(b.state().notes.find(n=>n.id==='a').body,'Herbs and flowers');assert(b.html().includes('No notes match'));
+});
+test('failed note saves retain the editor and block folder changes selection and creation',()=>{
+  const b=noteBrowser(),before=JSON.stringify(b.state());b.fail(true);b.input('note-body','Keep this draft');b.tick();
+  assert(b.node('#note-save').textContent.includes('Could not save'));eq(b.folder('folder:Home'),'');
+  b.click('select-note','a');eq(b.node('#note-body').value,'Keep this draft');b.click('note');eq(JSON.stringify(b.state()),before);eq(b.saves(),0);
+  b.fail(false);b.folder('folder:Home');eq(b.state().notes.find(n=>n.id==='b').body,'Keep this draft');
+});
+test('new notes and global note links reveal their note despite active filters',()=>{
+  const b=noteBrowser();b.folder('unfiled');b.input('note-search','missing');b.click('note');
+  assert(b.html().includes('4 of 4 notes'));eq(b.node('#note-title').value,'Untitled note');eq(b.focus(),'#note-title');
+  b.folder('unfiled');b.click('open-note','a');eq(b.node('#note-title').value,'Garden plan');assert(b.html().includes('4 of 4 notes'));
+});
+log('DAYLIGHT_NOTE_TESTS_PASSED='+passed);
+test('saved folders become available immediately in the filter and suggestions',()=>{
+  const b=noteBrowser();b.input('note-folder','New folder');b.tick();
+  assert(b.node('#note-folder-filter').innerHTML.includes('value="folder:New folder"'));
+  assert(b.node('#note-folders').innerHTML.includes('value="New folder"'));
+  b.folder('folder:New folder');assert(b.html().includes('1 of 3 notes'));
+});
+log('DAYLIGHT_NOTE_FOLDER_TESTS_PASSED='+passed);

@@ -1,5 +1,30 @@
 # Changelog
 
+## 2026-10-30 — Note folders and focused search
+
+Notes now have an optional autosaved folder, with suggestions from existing
+folders and an Unfiled option for older or uncategorized notes. Search titles
+and text within Notes, combine search with folder filters, see result counts,
+and clear filters with one button. Pinned notes remain first. New notes and
+notes opened from global search are revealed even when Notes filters were set.
+Folder controls and search have visible labels, selection is exposed to assistive
+technology, and filters restore keyboard focus after updating the results.
+
+Pending edits save before filter or note selection changes. Failed saves retain
+the draft and show a retry message; saved folders immediately appear in filter
+options and suggestions. Folder names are escaped, trimmed, and limited to 60
+characters. Optional folders round trip in version 1 backups; old notes remain
+compatible without a storage rewrite. No dependencies, network access, storage
+key changes, or changes to the browser-local policy were introduced.
+
+Validation: all 57 tests passed in JavaScriptCore, including nine appended
+regressions. All 48 existing tests remain unchanged. Coverage includes backup
+compatibility and malformed folders, combined filters and ordering, immutable
+selection, escaped accessible markup, autosave and pending drafts, failed
+writes, note creation/global links, and immediate folder option updates.
+Browser event checks use the dependency-free harness; no visual browser
+walkthrough was available.
+
 ## 2026-10-29 — Keyboard shortcuts and accessible guide
 
 Added Alt + Shift shortcuts (Option + Shift on Mac) for view navigation (1–5),

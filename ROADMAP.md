@@ -18,7 +18,7 @@ in the user's browser and existing backups must remain compatible.
 - [x] Add task list view and an overdue/today filter, preserving board functionality (2026-10-27)
 - [x] Add habit editing and weekly completion targets (2026-10-28)
 - [x] Add keyboard shortcuts with a discoverable accessible shortcut guide (2026-10-29)
-- [ ] Add note folders or tags and note-specific search
+- [x] Add note folders or tags and note-specific search (2026-10-30)
 - [ ] Add focus session history by week with a clear accessible chart
 - [ ] Add recurrence for repeating tasks with tested calendar boundaries
 - [ ] Add an accessible light/dark theme setting that persists
@@ -31,7 +31,25 @@ add regression coverage, and describe the change in CHANGELOG.md. Avoid busywork
 new dependencies, remote APIs, accounts, payments, or storing data in the repository.
 Keep the current UI polished and responsive. Do not delete or weaken existing tests.
 
-## Latest validation — 2026-10-29
+## Latest validation — 2026-10-30
+
+Added optional note folders with autosave and existing-folder suggestions,
+Notes title/body search, combined All folders/Unfiled/folder filters, result
+counts, and clear filters. New notes and global search links reveal their note
+by clearing Notes filters. Pending edits save before filtering or selecting;
+failed writes keep the draft available. Folder names are escaped and bounded
+to 60 characters. Version 1 backups retain optional folders; legacy notes stay
+Unfiled without a schema rewrite. Storage key and local-only policy are unchanged.
+
+Validation: all 57 tests passed in JavaScriptCore. The original 48 tests are
+unchanged; nine appended regressions cover legacy/new backups, malformed folder
+values, combined filtering, ordering and immutability, accessible escaped
+markup, autosave and pending edits, failed saves, creation/global links, and
+immediate folder suggestions. UI checks use the dependency-free browser boundary;
+visual layout and native browser interactions were not inspected in a browser.
+
+## Previous validation — 2026-10-29
+
 
 Added Alt + Shift shortcuts (Option + Shift on Mac): 1–5 navigate the five
 workspace views, S focuses and selects global search, T/H/N create a task,
