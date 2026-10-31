@@ -53,12 +53,22 @@
     const q=query.trim().toLocaleLowerCase();
     return state.notes.filter(n=>(!folder||(folder==='unfiled'?!n.folder:n.folder===folder.slice(7)))&&(`${n.title} ${n.body}`.toLocaleLowerCase().includes(q))).sort((a,b)=>Number(b.pinned)-Number(a.pinned)||b.updatedAt.localeCompare(a.updatedAt));
   }
+  function focusWeek(state,now=new Date(),offset=0) {
+    const start=new Date(now);start.setHours(12,0,0,0);
+    start.setDate(start.getDate()-(start.getDay()+6)%7+7*Math.min(0,Math.trunc(offset)||0));
+    const today=dayKey(now),days=Array.from({length:7},(_,i)=>{
+      const d=new Date(start);d.setDate(d.getDate()+i);return {day:dayKey(d),minutes:0,count:0};
+    });
+    const byDay=new Map(days.map(d=>[d.day,d]));
+    state.sessions.forEach(s=>{const d=byDay.get(s.day);if(d&&s.day<=today){d.minutes+=s.minutes;d.count++;}});
+    return {start:days[0].day,end:days[6].day,days,minutes:days.reduce((n,d)=>n+d.minutes,0),count:days.reduce((n,d)=>n+d.count,0)};
+  }
   function startTimer(state,minutes=25,now=Date.now(),label='Focus') {if(!Number.isFinite(minutes)||minutes<1||minutes>180) throw new Error('Choose 1–180 minutes.'); return {...state,timer:{id:uid(),duration:minutes*60,remaining:minutes*60,endAt:now+minutes*60000,label}};}
   function remaining(timer,now=Date.now()) {return !timer?0:timer.endAt===null?timer.remaining:Math.max(0,Math.ceil((timer.endAt-now)/1000));}
   function pauseTimer(state,now=Date.now()) {return !state.timer?state:{...state,timer:{...state.timer,remaining:remaining(state.timer,now),endAt:null}};}
   function resumeTimer(state,now=Date.now()) {return !state.timer?state:{...state,timer:{...state.timer,endAt:now+state.timer.remaining*1000}};}
   function finishTimer(state,now=new Date()) {if(!state.timer||remaining(state.timer,new Date(now).getTime())>0) return state; const timer=state.timer; const sessions=state.sessions.some(s=>s.id===timer.id)||timer.label==='Break'?state.sessions:[...state.sessions,{id:timer.id,day:dayKey(now),minutes:timer.duration/60}]; return {...state,timer:null,sessions};}
   function demo(now=new Date()) {let s=empty(); s.sample=true; const today=dayKey(now); const tomorrow=new Date(now); tomorrow.setDate(tomorrow.getDate()+1); for(const t of [{title:'Outline the next big idea',project:'Creative',priority:'high',due:today,status:'doing',description:'Start with the problem, then sketch three possible solutions.'},{title:'Plan the week ahead',project:'Personal',priority:'medium',due:today,status:'todo'},{title:'Read a chapter',project:'Learning',priority:'low',due:dayKey(tomorrow),status:'todo'},{title:'Clear the desk, clear the mind',project:'Personal',priority:'low',status:'done'}]) s=addTask(s,t,now); s.habits=[{id:uid(),title:'Move for 20 minutes',days:[]},{id:uid(),title:'Read a little',days:[today]},{id:uid(),title:'Make time to reflect',days:[]}]; s.notes=[{id:uid(),title:'A little room to think',body:'What would make today feel meaningful?\n\nUse this space for ideas, meeting notes, or a quick brain dump. Small steps count.',pinned:true,updatedAt:new Date(now).toISOString()}]; return s;}
-  const api = {VERSION,uid,dayKey,validDay,empty,normalize,addTask,updateTask,saveHabit,habitTarget,habitWeek,toggleHabit,streak,filterTasks,filterNotes,startTimer,remaining,pauseTimer,resumeTimer,finishTimer,demo};
+  const api = {VERSION,uid,dayKey,validDay,empty,normalize,addTask,updateTask,saveHabit,habitTarget,habitWeek,toggleHabit,streak,filterTasks,filterNotes,focusWeek,startTimer,remaining,pauseTimer,resumeTimer,finishTimer,demo};
   root.Daylight = api; if(typeof module!=='undefined'&&module.exports) module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);

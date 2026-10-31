@@ -19,7 +19,7 @@ in the user's browser and existing backups must remain compatible.
 - [x] Add habit editing and weekly completion targets (2026-10-28)
 - [x] Add keyboard shortcuts with a discoverable accessible shortcut guide (2026-10-29)
 - [x] Add note folders or tags and note-specific search (2026-10-30)
-- [ ] Add focus session history by week with a clear accessible chart
+- [x] Add focus session history by week with a clear accessible chart (2026-10-31)
 - [ ] Add recurrence for repeating tasks with tested calendar boundaries
 - [ ] Add an accessible light/dark theme setting that persists
 - [ ] Add an onboarding tour with explicit demo-data controls
@@ -31,7 +31,28 @@ add regression coverage, and describe the change in CHANGELOG.md. Avoid busywork
 new dependencies, remote APIs, accounts, payments, or storing data in the repository.
 Keep the current UI polished and responsive. Do not delete or weaken existing tests.
 
-## Latest validation — 2026-10-30
+## Latest validation — 2026-10-31
+
+Added Monday–Sunday focus history with previous/next week browsing and a
+This week control. Daily minute bars have a matching visible table with scoped
+headers and a dated caption; weekly totals show minutes and session counts.
+Empty weeks remain readable, future days are marked with a dash, and browsing
+stops at the earliest recorded week and current week. Keyboard focus stays on
+the navigation control or moves to the week summary when a control is disabled.
+The timer and recent-session list remain available. History is derived from
+existing sessions without writes; storage keys, version 1 backups, and the
+browser-local policy remain unchanged.
+
+Validation: all 62 tests passed in JavaScriptCore, including explicit runs with
+America/New_York and Pacific/Auckland time zones. All 57 existing tests remain
+unchanged; five appended regressions cover aggregation, fractional minutes,
+zero-filled days, future exclusion, immutability and backup compatibility,
+year/leap-day/DST boundaries, focus/break completion, accessible markup, empty
+states, navigation bounds, focus restoration, and browsing without writes.
+UI validation uses the dependency-free browser boundary; visual layout and
+native browser/screen-reader interactions were not inspected in a browser.
+
+## Previous validation — 2026-10-30
 
 Added optional note folders with autosave and existing-folder suggestions,
 Notes title/body search, combined All folders/Unfiled/folder filters, result

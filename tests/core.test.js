@@ -325,3 +325,50 @@ test('saved folders become available immediately in the filter and suggestions',
   b.folder('folder:New folder');assert(b.html().includes('1 of 3 notes'));
 });
 log('DAYLIGHT_NOTE_FOLDER_TESTS_PASSED='+passed);
+
+// Weekly focus history is derived without changing version 1 session records.
+test('focus weeks aggregate every session and include seven zero-filled local days',()=>{
+  const s={...C.empty(),sessions:[{id:'a',day:'2026-10-26',minutes:25},{id:'b',day:'2026-10-26',minutes:12.5},{id:'c',day:'2026-10-31',minutes:50},{id:'d',day:'2026-10-25',minutes:10},{id:'future',day:'2026-11-01',minutes:25}]};
+  const before=JSON.stringify(s),w=C.focusWeek(s,new Date(2026,9,31,23,59));
+  eq(w.start,'2026-10-26');eq(w.end,'2026-11-01');eq(w.days.length,7);eq(w.minutes,87.5);eq(w.count,3);
+  eq(w.days[0],{day:'2026-10-26',minutes:37.5,count:2});eq(w.days[1].minutes,0);eq(w.days[6].count,0);
+  w.days[0].minutes=0;eq(JSON.stringify(s),before);eq(C.normalize(JSON.parse(before)),s);
+});
+test('focus week navigation crosses years leap days and daylight saving boundaries',()=>{
+  eq(C.focusWeek(C.empty(),new Date(2028,0,2)).start,'2027-12-27');
+  eq(C.focusWeek(C.empty(),new Date(2028,2,5)).days.map(d=>d.day),['2028-02-28','2028-02-29','2028-03-01','2028-03-02','2028-03-03','2028-03-04','2028-03-05']);
+  const w=C.focusWeek(C.empty(),new Date(2026,10,2),-1);eq(w.start,'2026-10-26');eq(w.end,'2026-11-01');
+  eq(C.focusWeek(C.empty(),new Date(2026,10,2),1).start,'2026-11-02');
+});
+test('completed focus contributes once and breaks contribute nothing to weekly history',()=>{
+  let s=C.startTimer(C.empty(),25,fixed.getTime());const end=new Date(fixed.getTime()+25*60000);
+  s=C.finishTimer(s,end);s=C.finishTimer(s,end);eq(C.focusWeek(s,end).count,1);eq(C.focusWeek(s,end).minutes,25);
+  s=C.startTimer(s,5,end.getTime(),'Break');s=C.finishTimer(s,new Date(end.getTime()+5*60000));eq(C.focusWeek(s,end).count,1);
+});
+function focusBrowser(initial){
+  const source=typeof require==='function'?require('fs').readFileSync('web/app.js','utf8'):readFile('web/app.js');
+  const nodes={},handlers={};let saves=0,focused='';
+  const node=s=>nodes[s]||(nodes[s]={value:'',textContent:'',innerHTML:'',focus(){focused=s;},classList:{add(){},remove(){},toggle(){}}});
+  new Function('window','document','localStorage','location','setInterval','setTimeout','clearTimeout',source)(
+    {Daylight:C,addEventListener(){}},{querySelector:node,querySelectorAll(){return [];},addEventListener(k,fn){handlers[k]=fn;}},
+    {getItem(){return JSON.stringify(initial);},setItem(){saves++;}},{hash:'#focus'},()=>{},()=>{},()=>{});
+  return {html:()=>node('#main').innerHTML,saves:()=>saves,focus:()=>focused,click(direction){handlers.click({target:{closest(s){return s==='[data-action]'?{dataset:{action:'focus-week',direction}}:null;}}});}};
+}
+test('weekly history exposes named controls table headers totals and an empty state',()=>{
+  const b=focusBrowser(C.empty()),html=b.html();assert(html.includes('aria-labelledby="focus-history-title"'));
+  assert(html.includes('aria-label="Previous week" disabled'));assert(html.includes('aria-label="Next week" disabled'));
+  assert(html.includes('Daily focus totals for'));assert(html.includes('scope="col">Minutes'));assert(html.includes('scope="row"'));
+  assert(html.includes('0 minutes · 0 sessions'));assert(html.includes('No completed focus sessions this week'));
+  assert(html.includes('aria-hidden="true"'));eq(b.saves(),0);
+});
+test('weekly browsing retains timer recent sessions and avoids persistence writes',()=>{
+  const today=new Date(),thisWeek=C.focusWeek(C.empty(),today),older=new Date(thisWeek.start+'T12:00:00');older.setDate(older.getDate()-14);
+  const s={...C.empty(),sessions:[{id:'old',day:C.dayKey(older),minutes:45},{id:'today',day:C.dayKey(today),minutes:25}]};
+  const b=focusBrowser(s);assert(b.html().includes('25 minutes · 1 session'));assert(b.html().includes('Begin session'));assert(b.html().includes('Your time, well spent'));
+  b.click('previous');assert(b.html().includes('0 minutes · 0 sessions'));eq(b.focus(),'[data-direction="previous"]');
+  b.click('previous');assert(b.html().includes('45 minutes · 1 session'));assert(b.html().includes('aria-label="Previous week" disabled'));
+  b.click('previous');assert(b.html().includes('45 minutes · 1 session'));
+  b.click('next');assert(b.html().includes('0 minutes · 0 sessions'));b.click('current');assert(b.html().includes('25 minutes · 1 session'));
+  b.click('next');assert(b.html().includes('25 minutes · 1 session'));eq(b.saves(),0);
+});
+log('DAYLIGHT_FOCUS_WEEK_TESTS_PASSED='+passed);

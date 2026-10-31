@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-10-31 — Weekly focus history
+
+The Focus view now includes Monday–Sunday history with previous/next week
+buttons and a This week shortcut. See daily focused-minute bars, a visible
+accessible table of daily minutes and session counts, and weekly totals.
+Browse through empty weeks back to the earliest session; future weeks are
+unavailable and future days show a dash. Empty weeks offer a gentle prompt.
+Controls have accessible names, table headers identify rows and columns, and
+keyboard focus is restored after browsing, including at navigation limits.
+The existing timer and recent-session list stay available.
+
+History uses local calendar arithmetic and existing session records. Browsing
+never saves workspace data. Version 1 backups, storage keys, relative assets,
+and the browser-local data policy are unchanged. No dependencies or network
+calls were added.
+
+Validation: all 62 tests passed in JavaScriptCore, also with America/New_York
+and Pacific/Auckland time zones. The 57 existing tests are unchanged; five
+appended tests cover aggregation, fractional minutes, empty days and weeks,
+future exclusion, calendar boundaries, immutable data and backup compatibility,
+focus/break completion, accessible markup, navigation bounds, focus restoration,
+and no storage writes. UI checks use the dependency-free browser harness;
+visual layout and native browser/screen-reader behavior were not inspected.
+
 ## 2026-10-30 — Note folders and focused search
 
 Notes now have an optional autosaved folder, with suggestions from existing
