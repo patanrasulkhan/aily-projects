@@ -372,3 +372,84 @@ test('weekly browsing retains timer recent sessions and avoids persistence write
   b.click('next');assert(b.html().includes('25 minutes · 1 session'));eq(b.saves(),0);
 });
 log('DAYLIGHT_FOCUS_WEEK_TESTS_PASSED='+passed);
+
+// Repeating tasks retain completed occurrences and generate just one successor.
+test('daily and weekly next dates cross calendar and daylight saving boundaries',()=>{
+  for(const [day,repeat,want] of [
+    ['2027-12-31','daily','2028-01-01'],['2028-02-28','daily','2028-02-29'],
+    ['2028-02-29','daily','2028-03-01'],['2026-02-28','daily','2026-03-01'],
+    ['2026-10-31','daily','2026-11-01'],['2026-11-01','daily','2026-11-02'],
+    ['2026-03-07','weekly','2026-03-14'],['2026-10-28','weekly','2026-11-04'],
+    ['2028-02-25','weekly','2028-03-03'],['2027-12-28','weekly','2028-01-04']
+  ])eq(C.nextTaskDay(day,repeat,fixed),want);
+  eq(C.nextTaskDay('','daily',new Date(2026,10,1,0,5)),'2026-11-02');
+  throws(()=>C.nextTaskDay('9999-12-31','daily',fixed));
+});
+test('completion retains history and copies task details into one next open occurrence',()=>{
+  const s=C.addTask(C.empty(),{title:'Water plants',description:'Small pot',project:'Home',priority:'high',due:'2026-10-20',repeat:'weekly'},fixed),before=JSON.stringify(s),id=s.tasks[0].id;
+  let n=C.updateTask(s,id,{status:'done'},fixed);
+  eq(JSON.stringify(s),before);eq(n.tasks.length,2);eq(n.tasks[0].status,'done');eq(n.tasks[0].completedAt,fixed.toISOString());assert(n.tasks[0].repeatGenerated);
+  const next=n.tasks[1];assert(next.id!==id);eq(next.title,'Water plants');eq(next.description,'Small pot');eq(next.project,'Home');eq(next.priority,'high');eq(next.repeat,'weekly');eq(next.due,'2026-10-27');eq(next.status,'todo');eq(next.completedAt,'');assert(!next.repeatGenerated);
+  n=C.updateTask(n,id,{status:'done'},fixed);n=C.updateTask(n,id,{status:'todo'},fixed);n=C.updateTask(n,id,{status:'done',repeatGenerated:false},fixed);eq(n.tasks.length,2);
+  n=C.updateTask(n,next.id,{status:'done'},fixed);eq(n.tasks.length,3);eq(n.tasks[2].due,'2026-11-03');
+});
+test('repeat backups retain optional metadata without rewriting legacy tasks',()=>{
+  const legacy=C.addTask(C.empty(),{title:'Legacy'},fixed);eq(C.normalize(legacy),legacy);assert(!('repeat' in legacy.tasks[0]));
+  let s=C.addTask(legacy,{title:'Repeat',repeat:'daily'},fixed),id=s.tasks[1].id;
+  s=C.updateTask(s,id,{status:'done'},fixed);s=C.normalize(JSON.parse(JSON.stringify(s)));eq(s.tasks[2].due,'2026-10-27');
+  s=C.updateTask(s,id,{status:'todo'},fixed);s=C.updateTask(s,id,{status:'done'},fixed);eq(s.tasks.length,3);eq(C.normalize(s),s);
+  for(const repeat of [null,{},'monthly','<script>']){const n=C.normalize({...legacy,tasks:[{...legacy.tasks[0],repeat,repeatGenerated:'yes'}]});assert(!('repeat' in n.tasks[0]));assert(!('repeatGenerated' in n.tasks[0]));}
+});
+test('repeat edits cancellation and existing completed tasks avoid unexpected copies',()=>{
+  let s=C.addTask(C.empty(),{title:'Task',repeat:'daily',due:'2026-11-01'},fixed),id=s.tasks[0].id;
+  s=C.updateTask(s,id,{repeat:'weekly',due:'2026-12-30',status:'doing'},fixed);eq(s.tasks.length,1);
+  s=C.updateTask(s,id,{repeat:'',status:'done'},fixed);eq(s.tasks.length,1);assert(!s.tasks[0].repeat);
+  s=C.updateTask(s,id,{repeat:'daily'},fixed);eq(s.tasks.length,1);
+  const done=C.addTask(C.empty(),{title:'Already done',repeat:'daily',status:'done'},fixed);eq(done.tasks.length,1);
+});
+test('repeat completion at storage limits or calendar overflow fails atomically',()=>{
+  let s=C.addTask(C.empty(),{title:'Repeat',repeat:'daily',due:'9999-12-31'},fixed),before=JSON.stringify(s);
+  throws(()=>C.updateTask(s,s.tasks[0].id,{status:'done'},fixed));eq(JSON.stringify(s),before);
+  s={...s,tasks:Array.from({length:3000},(_,i)=>({...s.tasks[0],id:'task-'+i,due:'2026-11-01'}))};before=JSON.stringify(s);
+  throws(()=>C.updateTask(s,'task-0',{status:'done'},fixed));eq(JSON.stringify(s),before);
+  s=C.updateTask(s,'task-0',{repeat:'',status:'done'},fixed);eq(s.tasks.length,3000);eq(s.tasks[0].status,'done');
+});
+function repeatBrowser(initial){
+  const source=typeof require==='function'?require('fs').readFileSync('web/app.js','utf8'):readFile('web/app.js');
+  const handlers={},nodes={};let stored=initial,saves=0,fail=false;
+  const node=s=>nodes[s]||(nodes[s]={value:'',textContent:'',innerHTML:'',focus(){},showModal(){this.open=true;},close(){this.open=false;},classList:{add(){},remove(){},toggle(){}}});
+  new Function('window','document','localStorage','location','setInterval','setTimeout','clearTimeout','FormData',source)(
+    {Daylight:C,addEventListener(){}},{querySelector:node,querySelectorAll(){return [];},addEventListener(k,fn){handlers[k]=fn;}},
+    {getItem(){return JSON.stringify(stored);},setItem(k,v){if(fail)throw new Error('Full');stored=JSON.parse(v);saves++;}},
+    {hash:'#tasks'},()=>{},()=>{},()=>{},function(form){return Object.entries(form.values);});
+  return {node,state:()=>stored,saves:()=>saves,fail(v){fail=v;},
+    click(action,id,taskView){handlers.click({target:{closest(s){return s==='[data-action]'?{dataset:{action,id,taskView}}:null;}}});},
+    submit(values){handlers.submit({preventDefault(){},target:{id:'editor-form',values}});},
+    change(id,status,check){handlers.change({target:{dataset:check?{taskCheck:id}:{taskStatus:id},value:status,checked:status==='done'}});},
+    drop(id){handlers.drop({preventDefault(){},dataTransfer:{getData(){return id;}},target:{closest(){return {dataset:{drop:'done'}};}}});}};
+}
+test('repeat editor exposes selection help and board and list labels',()=>{
+  const s=C.addTask(C.empty(),{title:'<Repeat>',repeat:'weekly',due:'2026-11-01'},fixed),b=repeatBrowser(s);
+  assert(b.node('#main').innerHTML.includes('Repeats weekly'));assert(!b.node('#main').innerHTML.includes('<Repeat>'));
+  b.click('edit-task',s.tasks[0].id);const html=b.node('#editor-fields').innerHTML;
+  assert(html.includes('Repeat<select name="repeat" aria-describedby="repeat-help"'));assert(html.includes('value="weekly" selected'));assert(html.includes('Reopening does not create another copy'));
+  b.submit({title:'Edited',repeat:'daily',due:'2026-11-02',status:'todo'});eq(b.state().tasks[0].repeat,'daily');eq(b.state().tasks.length,1);
+  b.click('task-view',null,'list');assert(b.node('#main').innerHTML.includes('Repeats daily'));assert(b.node('#main').innerHTML.includes('aria-label="Task list"'));
+  b.click('task');b.submit({title:'New weekly',repeat:'weekly'});eq(b.state().tasks[1].repeat,'weekly');eq(C.normalize(b.state()),b.state());
+});
+test('checkbox status drag and editor completion all generate exactly one successor',()=>{
+  for(const path of ['checkbox','status','drop','editor']){
+    const b=repeatBrowser(C.addTask(C.empty(),{title:'Repeat',repeat:'daily',due:'2026-11-01'},fixed)),id=b.state().tasks[0].id;
+    if(path==='drop')b.drop(id);else if(path==='editor'){b.click('edit-task',id);b.submit({title:'Repeat',repeat:'daily',due:'2026-11-01',status:'done'});}else b.change(id,'done',path==='checkbox');
+    eq(b.state().tasks.length,2);eq(b.state().tasks[1].due,'2026-11-02');eq(b.saves(),1);
+    b.change(id,'todo',true);b.change(id,'done',true);eq(b.state().tasks.length,2);
+  }
+});
+test('failed recurrence writes and calendar errors preserve stored tasks and allow retry',()=>{
+  const b=repeatBrowser(C.addTask(C.empty(),{title:'Repeat',repeat:'daily',due:'2026-11-01'},fixed)),id=b.state().tasks[0].id,before=JSON.stringify(b.state());
+  b.fail(true);b.change(id,'done',true);eq(JSON.stringify(b.state()),before);eq(b.saves(),0);
+  b.click('edit-task',id);b.submit({title:'Repeat',repeat:'daily',status:'done'});assert(b.node('#editor').open);eq(JSON.stringify(b.state()),before);
+  b.fail(false);b.change(id,'done',false);eq(b.state().tasks.length,2);eq(b.saves(),1);
+  const edge=repeatBrowser(C.addTask(C.empty(),{title:'Edge',repeat:'daily',due:'9999-12-31'},fixed));edge.drop(edge.state().tasks[0].id);eq(edge.saves(),0);assert(edge.node('#toast').textContent.includes('supported calendar'));
+});
+log('DAYLIGHT_REPEAT_TESTS_PASSED='+passed);

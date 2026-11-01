@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-11-01 — Daily and weekly repeating tasks
+
+Choose Does not repeat, Daily, or Weekly in the task editor. Repeating tasks
+show their schedule in the board, list, overview, and search. Completing one
+keeps the completed task and creates the next To do occurrence, preserving its
+title, notes, project, priority, and repeat schedule. Due dates advance one day
+or one week from the task's due date; undated tasks use the local completion
+date. Late tasks advance one occurrence at a time without flooding the board.
+Reopening and recompleting does not generate duplicates. Stop future repeats
+by editing the next open task. Editor guidance explains these rules.
+
+Checkboxes, status controls, drag/drop, and editor completion share the same
+behavior. Completion and successor creation save together; storage failures,
+task limits, and unsupported calendar overflow preserve stored data and show
+feedback. Optional metadata survives version 1 backup restore while older
+records retain their shape. Storage keys, relative URLs, the browser-local data
+policy, and dependencies remain unchanged. Monthly/custom schedules are deferred.
+
+Validation: all 70 tests passed in JavaScriptCore, including America/New_York
+and Pacific/Auckland time zones. The original 62 tests are unchanged; eight
+appended regressions cover calendar boundaries, immutable history and copies,
+backup compatibility, duplicate prevention, editing and stopping repeats, limits,
+accessible editor markup and labels, every completion path, and failed saves
+with retry. UI events use the dependency-free browser harness; visual layout
+and native browser/screen-reader interactions were not inspected.
+
 ## 2026-10-31 — Weekly focus history
 
 The Focus view now includes Monday–Sunday history with previous/next week

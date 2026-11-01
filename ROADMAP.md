@@ -20,7 +20,8 @@ in the user's browser and existing backups must remain compatible.
 - [x] Add keyboard shortcuts with a discoverable accessible shortcut guide (2026-10-29)
 - [x] Add note folders or tags and note-specific search (2026-10-30)
 - [x] Add focus session history by week with a clear accessible chart (2026-10-31)
-- [ ] Add recurrence for repeating tasks with tested calendar boundaries
+- [x] Add daily and weekly task recurrence with tested calendar boundaries (2026-11-01)
+- [ ] Extend task recurrence with monthly or custom schedules
 - [ ] Add an accessible light/dark theme setting that persists
 - [ ] Add an onboarding tour with explicit demo-data controls
 - [ ] Add optional CSV export for tasks and focus history
@@ -31,7 +32,33 @@ add regression coverage, and describe the change in CHANGELOG.md. Avoid busywork
 new dependencies, remote APIs, accounts, payments, or storing data in the repository.
 Keep the current UI polished and responsive. Do not delete or weaken existing tests.
 
-## Latest validation — 2026-10-31
+## Latest validation — 2026-11-01
+
+Added optional daily and weekly repeats in the task editor, with visible repeat
+labels in board, list, overview, and search task rows. Completing an open repeat
+keeps its completed history and creates one new To do task with the same details.
+The next due date advances from the original due date, or the local completion
+date for undated tasks. Late tasks advance one occurrence at a time. Reopening
+and recompleting an occurrence never generates another copy, even after backup
+restore. To stop future repeats, change the next open task to Does not repeat.
+Monthly/custom schedules remain a separate bounded follow-up.
+
+Optional repeat and repeatGenerated fields round trip in version 1 backups;
+legacy records keep their shape. Failed saves, task limits, and dates beyond the
+supported calendar leave completion and successor creation unapplied together.
+Status, checkbox, and drop errors show a message and restore the saved view.
+Storage keys, relative assets, dependencies, and browser-local policy are unchanged.
+
+Validation: all 70 tests passed in JavaScriptCore, including America/New_York
+and Pacific/Auckland runs. All 62 existing tests remain unchanged; eight appended
+regressions cover leap days, month/year/DST boundaries, undated and late tasks,
+duplicate prevention, immutable updates, optional backup metadata, editing and
+stopping repeats, task/calendar limits, accessible escaped editor markup, labels,
+all four completion paths, and failed-write retry. UI validation uses the existing
+dependency-free browser boundary; native browser layout and screen-reader behavior
+were not inspected.
+
+## Previous validation — 2026-10-31
 
 Added Monday–Sunday focus history with previous/next week browsing and a
 This week control. Daily minute bars have a matching visible table with scoped
