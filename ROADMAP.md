@@ -21,7 +21,8 @@ in the user's browser and existing backups must remain compatible.
 - [x] Add note folders or tags and note-specific search (2026-10-30)
 - [x] Add focus session history by week with a clear accessible chart (2026-10-31)
 - [x] Add daily and weekly task recurrence with tested calendar boundaries (2026-11-01)
-- [ ] Extend task recurrence with monthly or custom schedules
+- [x] Extend task recurrence with custom day intervals (1–365 days) (2026-11-05)
+- [ ] Add monthly task recurrence with an explicit month-end rule
 - [ ] Add an accessible light/dark theme setting that persists
 - [ ] Add an onboarding tour with explicit demo-data controls
 - [ ] Add optional CSV export for tasks and focus history
@@ -32,7 +33,29 @@ add regression coverage, and describe the change in CHANGELOG.md. Avoid busywork
 new dependencies, remote APIs, accounts, payments, or storing data in the repository.
 Keep the current UI polished and responsive. Do not delete or weaken existing tests.
 
-## Latest validation — 2026-11-01
+## Latest validation — 2026-11-05
+
+Added Every N days to the task editor with a labeled 1–365 whole-day interval,
+visible schedule labels, and guidance. Custom schedules advance from the due
+date, or local completion date if undated. Late tasks advance once; completed
+history and duplicate prevention remain intact. All completion paths use the
+same atomic save. The editor scrolls on short screens to keep save controls
+reachable. Monthly schedules remain an explicit follow-up.
+
+Optional repeat: custom and repeatEvery metadata round trip in version 1 backups.
+Malformed imported custom schedules are discarded without dropping the task;
+invalid creation/edit intervals report an error without saving. Legacy task
+shapes, storage keys, local assets, and browser-local policy are unchanged.
+
+Validation: all 76 tests passed in JavaScriptCore in America/New_York and
+Pacific/Auckland. All 70 existing tests are unchanged; six appended regressions
+cover intervals, leap/year/month/DST boundaries, undated/late tasks, backup
+normalization, history, stopping/editing, duplicate prevention, editor markup,
+labels, every completion path, failed writes/retry, task limits and calendar
+overflow. UI events use the dependency-free browser boundary; native browser
+layout and screen-reader behavior were not inspected.
+
+## Previous validation — 2026-11-01
 
 Added optional daily and weekly repeats in the task editor, with visible repeat
 labels in board, list, overview, and search task rows. Completing an open repeat

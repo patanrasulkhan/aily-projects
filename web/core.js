@@ -12,7 +12,7 @@
     if (input.tasks.length > 3000 || input.habits.length > 100 || input.notes.length > 1000 || input.sessions.length > 10000) throw new Error('This backup is too large.');
     const state = empty(); state.sample=!!input.sample;
     const unique = items => { const seen = new Set(); return items.filter(x => {if(!x.id || seen.has(x.id)) return false; seen.add(x.id); return true;}); };
-    state.tasks = unique(input.tasks.filter(x=>x && typeof x==='object').map(t => ({id:text(t.id,100),title:text(t.title,200),description:text(t.description,2000),project:text(t.project,60)||'Personal',priority:['high','medium','low'].includes(t.priority)?t.priority:'medium',status:['todo','doing','done'].includes(t.status)?t.status:'todo',due:validDay(t.due)?t.due:'',...(['daily','weekly'].includes(t.repeat)?{repeat:t.repeat}:{}),...(t.repeatGenerated===true?{repeatGenerated:true}:{}),createdAt:text(t.createdAt,40),completedAt:t.status==='done'?text(t.completedAt,40):''})).filter(t=>t.title));
+    state.tasks = unique(input.tasks.filter(x=>x && typeof x==='object').map(t => ({id:text(t.id,100),title:text(t.title,200),description:text(t.description,2000),project:text(t.project,60)||'Personal',priority:['high','medium','low'].includes(t.priority)?t.priority:'medium',status:['todo','doing','done'].includes(t.status)?t.status:'todo',due:validDay(t.due)?t.due:'',...(['daily','weekly'].includes(t.repeat)?{repeat:t.repeat}:t.repeat==='custom'&&Number.isInteger(t.repeatEvery)&&t.repeatEvery>=1&&t.repeatEvery<=365?{repeat:'custom',repeatEvery:t.repeatEvery}:{}),...(t.repeatGenerated===true?{repeatGenerated:true}:{}),createdAt:text(t.createdAt,40),completedAt:t.status==='done'?text(t.completedAt,40):''})).filter(t=>t.title));
     state.habits = unique(input.habits.filter(x=>x && typeof x==='object').map(h=>({id:text(h.id,100),title:text(h.title,100),...(Number.isInteger(h.weeklyTarget)&&h.weeklyTarget>=1&&h.weeklyTarget<=7?{weeklyTarget:h.weeklyTarget}:{}),days:[...new Set((Array.isArray(h.days)?h.days:[]).filter(validDay))].sort()})).filter(h=>h.title));
     state.notes = unique(input.notes.filter(x=>x && typeof x==='object').map(n=>({id:text(n.id,100),title:text(n.title,100)||'Untitled note',body:typeof n.body==='string'?n.body.slice(0,30000):'',pinned:!!n.pinned,updatedAt:text(n.updatedAt,40),...(text(n.folder,60)?{folder:text(n.folder,60)}:{})})));
     state.sessions = unique(input.sessions.filter(x=>x && typeof x==='object' && validDay(x.day) && Number.isFinite(x.minutes) && x.minutes>0 && x.minutes<=180).map(x=>({id:text(x.id,100),day:x.day,minutes:x.minutes})));
@@ -20,16 +20,21 @@
     if (t && typeof t==='object' && typeof t.id==='string' && Number.isFinite(t.duration) && t.duration>0 && t.duration<=10800 && Number.isFinite(t.remaining) && t.remaining>=0 && t.remaining<=10800 && (t.endAt===null || (Number.isFinite(t.endAt)&&t.endAt>0))) state.timer = {id:t.id.slice(0,100),duration:t.duration,remaining:t.remaining,endAt:t.endAt,label:text(t.label,40)||'Focus'};
     return state;
   }
+  function validateRepeat(input) {
+    if(input.repeat==='custom'&&(!Number.isInteger(input.repeatEvery)||input.repeatEvery<1||input.repeatEvery>365)) throw new Error('Choose a repeat interval from 1 to 365 whole days.');
+  }
   function addTask(state, input, now = new Date()) {
+    validateRepeat(input);
     const title = text(input.title,200); if(!title) throw new Error('Give your task a title.');
     if(state.tasks.length>=3000) throw new Error('Task limit reached. Export a backup before clearing old tasks.');
     const task = normalize({...empty(),tasks:[{...input,id:uid(),title,createdAt:new Date(now).toISOString(),completedAt:input.status==='done'?new Date(now).toISOString():''}]}).tasks[0];
     return {...state,tasks:[...state.tasks,task]};
   }
-  function nextTaskDay(due,repeat,now=new Date()) {
+  function nextTaskDay(due,repeat,now=new Date(),repeatEvery) {
+    validateRepeat({repeat,repeatEvery});
     const base=validDay(due)?due:dayKey(now);
     const d=new Date(base+'T12:00:00');
-    d.setDate(d.getDate()+(repeat==='weekly'?7:1));
+    d.setDate(d.getDate()+(repeat==='custom'?repeatEvery:repeat==='weekly'?7:1));
     const result=dayKey(d);
     if(!validDay(result)) throw new Error('The next repeat is outside the supported calendar.');
     return result;
@@ -40,11 +45,12 @@
       if(t.id!==id)return t;
       // Completion bookkeeping belongs to the model, never to editor input.
       const next={...t,...patch,id:t.id,createdAt:t.createdAt,repeatGenerated:t.repeatGenerated};
+      validateRepeat(next);
       if(!text(next.title,200))throw new Error('Give your task a title.');
       next.completedAt=next.status==='done'?(t.completedAt||new Date(now).toISOString()):'';
       const clean=normalize({...empty(),tasks:[next]}).tasks[0];
       if(t.status!=='done'&&clean.status==='done'&&clean.repeat&&!t.repeatGenerated){
-        successor=addTask({...state,tasks:state.tasks},{title:clean.title,description:clean.description,project:clean.project,priority:clean.priority,repeat:clean.repeat,due:nextTaskDay(clean.due,clean.repeat,now)},now).tasks[state.tasks.length];
+        successor=addTask({...state,tasks:state.tasks},{title:clean.title,description:clean.description,project:clean.project,priority:clean.priority,repeat:clean.repeat,repeatEvery:clean.repeatEvery,due:nextTaskDay(clean.due,clean.repeat,now,clean.repeatEvery)},now).tasks[state.tasks.length];
         clean.repeatGenerated=true;
       }
       return clean;

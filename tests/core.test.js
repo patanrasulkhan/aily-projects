@@ -453,3 +453,60 @@ test('failed recurrence writes and calendar errors preserve stored tasks and all
   const edge=repeatBrowser(C.addTask(C.empty(),{title:'Edge',repeat:'daily',due:'9999-12-31'},fixed));edge.drop(edge.state().tasks[0].id);eq(edge.saves(),0);assert(edge.node('#toast').textContent.includes('supported calendar'));
 });
 log('DAYLIGHT_REPEAT_TESTS_PASSED='+passed);
+
+// Custom day intervals extend recurrence without changing legacy backup records.
+test('custom intervals cross leap years month ends years and daylight saving dates',()=>{
+  for(const [day,days,want] of [
+    ['2028-02-28',2,'2028-03-01'],['2026-01-31',30,'2026-03-02'],
+    ['2027-12-31',14,'2028-01-14'],['2026-03-07',2,'2026-03-09'],
+    ['2026-10-31',2,'2026-11-02'],['2027-03-01',365,'2028-02-29'],
+    ['2026-11-05',1,'2026-11-06']
+  ])eq(C.nextTaskDay(day,'custom',fixed,days),want);
+  eq(C.nextTaskDay('','custom',new Date(2026,10,5,0,5),10),'2026-11-15');
+  throws(()=>C.nextTaskDay('9999-12-31','custom',fixed,365));
+});
+test('custom intervals validate writes and discard malformed backup schedules',()=>{
+  const s=C.addTask(C.empty(),{title:'Valid',repeat:'custom',repeatEvery:14},fixed),before=JSON.stringify(s);
+  for(const value of [undefined,null,'14',0,-1,1.5,366,Infinity,NaN,{}]){
+    throws(()=>C.addTask(C.empty(),{title:'Invalid',repeat:'custom',repeatEvery:value},fixed));
+    throws(()=>C.updateTask(s,s.tasks[0].id,{repeatEvery:value},fixed));
+    const t=C.normalize({...s,tasks:[{...s.tasks[0],repeatEvery:value}]}).tasks[0];
+    assert(!('repeat' in t));assert(!('repeatEvery' in t));
+  }
+  eq(JSON.stringify(s),before);eq(C.normalize(JSON.parse(before)),s);
+  const daily=C.updateTask(s,s.tasks[0].id,{repeat:'daily'},fixed);assert(!('repeatEvery' in daily.tasks[0]));
+});
+test('custom completion copies interval preserves history and advances late tasks once',()=>{
+  const s=C.addTask(C.empty(),{title:'Change filter',description:'Keep receipt',project:'Home',priority:'high',repeat:'custom',repeatEvery:30,due:'2026-01-31'},fixed),before=JSON.stringify(s),id=s.tasks[0].id;
+  let n=C.updateTask(s,id,{status:'done'},fixed);eq(JSON.stringify(s),before);eq(n.tasks.length,2);
+  const next=n.tasks[1];eq(next.due,'2026-03-02');eq(next.repeatEvery,30);eq(next.repeat,'custom');eq(next.description,'Keep receipt');eq(next.project,'Home');eq(next.priority,'high');
+  n=C.normalize(JSON.parse(JSON.stringify(n)));n=C.updateTask(n,id,{status:'todo'},fixed);n=C.updateTask(n,id,{status:'done'},fixed);eq(n.tasks.length,2);
+  n=C.updateTask(n,next.id,{repeatEvery:14,status:'done'},fixed);eq(n.tasks[2].due,'2026-03-16');eq(n.tasks[2].repeatEvery,14);
+  n=C.updateTask(n,n.tasks[2].id,{repeat:'',status:'done'},fixed);eq(n.tasks.length,3);assert(!n.tasks[2].repeatEvery);
+});
+test('custom editor exposes interval labels guidance and validates before saving',()=>{
+  const b=repeatBrowser(C.addTask(C.empty(),{title:'<Custom>',repeat:'custom',repeatEvery:14,due:'2026-11-05'},fixed)),id=b.state().tasks[0].id;
+  assert(b.node('#main').innerHTML.includes('Repeats every 14 days'));
+  b.click('edit-task',id);const html=b.node('#editor-fields').innerHTML;
+  assert(html.includes('value="custom" selected'));assert(html.includes('Custom interval (days)<input'));
+  assert(html.includes('name="repeatEvery" min="1" max="365" step="1" value="14"'));assert(html.includes('id="repeat-interval-help"'));
+  const before=JSON.stringify(b.state());b.submit({title:'Invalid',repeat:'custom',repeatEvery:'2.5'});eq(JSON.stringify(b.state()),before);eq(b.saves(),0);assert(b.node('#editor').open);
+  b.submit({title:'Edited',repeat:'custom',repeatEvery:'10',due:'2026-11-05'});eq(b.state().tasks[0].repeatEvery,10);eq(C.normalize(b.state()),b.state());
+  b.click('task-view',null,'list');assert(b.node('#main').innerHTML.includes('Repeats every 10 days'));
+  b.click('task');b.submit({title:'Daily custom',repeat:'custom',repeatEvery:'1'});assert(b.node('#main').innerHTML.includes('Repeats every 1 day</span>'));
+});
+test('all completion paths retain custom intervals with atomic save and retry',()=>{
+  for(const path of ['checkbox','status','drop','editor']){
+    const b=repeatBrowser(C.addTask(C.empty(),{title:'Repeat',repeat:'custom',repeatEvery:14,due:'2026-11-05'},fixed)),id=b.state().tasks[0].id,before=JSON.stringify(b.state());
+    const complete=()=>{if(path==='drop')b.drop(id);else if(path==='editor'){b.click('edit-task',id);b.submit({title:'Repeat',repeat:'custom',repeatEvery:'14',due:'2026-11-05',status:'done'});}else b.change(id,'done',path==='checkbox');};
+    b.fail(true);complete();eq(JSON.stringify(b.state()),before);eq(b.saves(),0);
+    b.fail(false);complete();eq(b.saves(),1);eq(b.state().tasks.length,2);eq(b.state().tasks[1].due,'2026-11-19');eq(b.state().tasks[1].repeatEvery,14);
+  }
+});
+test('custom calendar overflow and task limits preserve completion atomically',()=>{
+  let s=C.addTask(C.empty(),{title:'Edge',repeat:'custom',repeatEvery:2,due:'9999-12-30'},fixed),before=JSON.stringify(s);
+  throws(()=>C.updateTask(s,s.tasks[0].id,{status:'done'},fixed));eq(JSON.stringify(s),before);
+  s={...s,tasks:Array.from({length:3000},(_,i)=>({...s.tasks[0],id:'custom-'+i,due:'2026-11-05'}))};before=JSON.stringify(s);
+  throws(()=>C.updateTask(s,'custom-0',{status:'done'},fixed));eq(JSON.stringify(s),before);
+});
+log('DAYLIGHT_CUSTOM_REPEAT_TESTS_PASSED='+passed);

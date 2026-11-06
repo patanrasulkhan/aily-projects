@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-11-05 — Custom repeating task intervals
+
+Choose Every N days in the task editor and set a whole-day interval from 1 to
+365. Schedule labels appear wherever task rows are shown. Completion preserves
+the finished task and creates one next occurrence with the same interval and
+details, advancing from its due date or today's local date if undated. Late
+tasks advance once. Reopening does not create duplicates; edit the next open
+task to change or stop repeats. The editor scrolls on short screens.
+
+Invalid intervals leave the editor open with feedback. Failed saves, task limits,
+and calendar overflow preserve completion and successor creation together.
+Version 1 backups retain optional custom interval metadata; legacy records keep
+their shape. Malformed imported custom schedules are dropped while retaining
+the task. Storage keys, relative URLs, browser-local data policy, and dependencies
+are unchanged. Monthly schedules remain a roadmap follow-up.
+
+Validation: all 76 tests passed in JavaScriptCore under America/New_York and
+Pacific/Auckland. All 70 prior tests remain unchanged, with six appended tests
+covering calendar boundaries, interval validation, backups, immutable history,
+duplicate prevention, schedule edits/cancellation, editor labels and guidance,
+all four completion paths, failed-write retry, task limits, and calendar overflow.
+UI events were checked with the dependency-free browser harness; native browser
+layout and screen-reader behavior were not inspected.
+
 ## 2026-11-01 — Daily and weekly repeating tasks
 
 Choose Does not repeat, Daily, or Weekly in the task editor. Repeating tasks
