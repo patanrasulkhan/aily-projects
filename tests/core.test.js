@@ -510,3 +510,56 @@ test('custom calendar overflow and task limits preserve completion atomically',(
   throws(()=>C.updateTask(s,'custom-0',{status:'done'},fixed));eq(JSON.stringify(s),before);
 });
 log('DAYLIGHT_CUSTOM_REPEAT_TESTS_PASSED='+passed);
+
+// Monthly schedules clamp shorter months while retaining their original day.
+test('monthly dates clamp month ends and cross leap year year and DST boundaries',()=>{
+  for(const [day,want] of [['2026-01-31','2026-02-28'],['2028-01-31','2028-02-29'],['2028-02-29','2028-03-29'],['2026-03-31','2026-04-30'],['2026-10-31','2026-11-30'],['2026-12-31','2027-01-31'],['2026-01-15','2026-02-15']])eq(C.nextTaskDay(day,'monthly',fixed),want);
+  eq(C.nextTaskDay('2026-02-28','monthly',fixed,undefined,31),'2026-03-31');
+  eq(C.nextTaskDay('','monthly',new Date(2028,0,31,0,5)),'2028-02-29');
+  throws(()=>C.nextTaskDay('9999-12-01','monthly',fixed));
+});
+test('monthly completion and backup keep the original day after a shorter month',()=>{
+  let s=C.addTask(C.empty(),{title:'<Monthly>',description:'Receipt',project:'Home',priority:'high',repeat:'monthly',due:'2026-01-31'},fixed);
+  const before=JSON.stringify(s),id=s.tasks[0].id;
+  s=C.updateTask(s,id,{status:'done'},fixed);eq(JSON.parse(before).tasks[0].status,'todo');eq(s.tasks[1].due,'2026-02-28');eq(s.tasks[1].repeatMonthDay,31);
+  eq(s.tasks[1].description,'Receipt');eq(s.tasks[1].priority,'high');eq(s.tasks[1].project,'Home');
+  s=C.normalize(JSON.parse(JSON.stringify(s)));s=C.updateTask(s,id,{status:'todo'},fixed);s=C.updateTask(s,id,{status:'done'},fixed);eq(s.tasks.length,2);
+  s=C.updateTask(s,s.tasks[1].id,{title:'Edited',status:'done',due:'2026-02-28'},fixed);eq(s.tasks[2].due,'2026-03-31');eq(s.tasks[2].repeatMonthDay,31);eq(C.normalize(JSON.parse(JSON.stringify(s))),C.normalize(s));
+});
+test('monthly editing resets the day only when changing due date or switching schedule',()=>{
+  let s=C.addTask(C.empty(),{title:'Monthly',repeat:'monthly',due:'2026-02-28',repeatMonthDay:31},fixed),id=s.tasks[0].id;
+  s=C.updateTask(s,id,{title:'Renamed'},fixed);eq(s.tasks[0].repeatMonthDay,31);
+  s=C.updateTask(s,id,{due:'2026-02-20',status:'done'},fixed);eq(s.tasks[1].due,'2026-03-20');eq(s.tasks[1].repeatMonthDay,20);
+  s=C.updateTask(s,s.tasks[1].id,{repeat:'weekly'},fixed);assert(!('repeatMonthDay' in s.tasks[1]));
+  s=C.updateTask(s,s.tasks[1].id,{repeat:'monthly',due:'2026-03-15'},fixed);eq(s.tasks[1].repeatMonthDay,15);
+  s=C.updateTask(s,s.tasks[1].id,{repeat:'',status:'done'},fixed);eq(s.tasks.length,2);
+  const u=C.addTask(C.empty(),{title:'Undated',repeat:'monthly'},new Date(2026,0,31));eq(u.tasks[0].repeatMonthDay,31);
+  eq(C.updateTask(u,u.tasks[0].id,{status:'done'},new Date(2026,3,4)).tasks[1].due,'2026-05-31');
+});
+test('malformed monthly backup metadata is discarded and invalid writes are rejected',()=>{
+  const s=C.addTask(C.empty(),{title:'Monthly',repeat:'monthly',due:'2026-01-31'},fixed),before=JSON.stringify(s);
+  for(const value of [undefined,null,'31',0,32,1.5,{},Infinity]){
+    const clean=C.normalize({...s,tasks:[{...s.tasks[0],repeatMonthDay:value}]}).tasks[0];assert(!clean.repeat);assert(!('repeatMonthDay' in clean));eq(clean.title,'Monthly');
+    if(value!==undefined)throws(()=>C.addTask(C.empty(),{title:'Invalid',repeat:'monthly',repeatMonthDay:value},fixed));
+    throws(()=>C.updateTask(s,s.tasks[0].id,{repeatMonthDay:value},fixed));
+  }
+  eq(JSON.stringify(s),before);
+});
+test('monthly editor labels and every completion path preserve the schedule with failed save retry',()=>{
+  for(const path of ['checkbox','status','drop','editor']){
+    const b=repeatBrowser(C.addTask(C.empty(),{title:'<Monthly>',repeat:'monthly',due:'2026-01-31'},fixed)),id=b.state().tasks[0].id,before=JSON.stringify(b.state());
+    assert(b.node('#main').innerHTML.includes('Repeats monthly · day 31 (last day if shorter)'));assert(!b.node('#main').innerHTML.includes('<Monthly>'));
+    b.click('edit-task',id);const html=b.node('#editor-fields').innerHTML;assert(html.includes('value="monthly" selected'));assert(html.includes('January 31 → February 28 → March 31'));
+    const complete=()=>{if(path==='drop')b.drop(id);else if(path==='editor')b.submit({title:'Monthly',repeat:'monthly',due:'2026-01-31',status:'done'});else b.change(id,'done',path==='checkbox');};
+    b.fail(true);complete();eq(JSON.stringify(b.state()),before);eq(b.saves(),0);
+    b.fail(false);complete();eq(b.saves(),1);eq(b.state().tasks.length,2);eq(b.state().tasks[1].due,'2026-02-28');eq(b.state().tasks[1].repeatMonthDay,31);
+    b.click('task-view',null,'list');assert(b.node('#main').innerHTML.includes('Repeats monthly · day 31'));
+  }
+});
+test('monthly task limits and calendar overflow leave completion unchanged',()=>{
+  let s=C.addTask(C.empty(),{title:'Edge',repeat:'monthly',due:'9999-12-01'},fixed),before=JSON.stringify(s);
+  throws(()=>C.updateTask(s,s.tasks[0].id,{status:'done'},fixed));eq(JSON.stringify(s),before);
+  s={...s,tasks:Array.from({length:3000},(_,i)=>({...s.tasks[0],id:'monthly-'+i,due:'2026-01-31'}))};before=JSON.stringify(s);
+  throws(()=>C.updateTask(s,'monthly-0',{status:'done'},fixed));eq(JSON.stringify(s),before);
+});
+log('DAYLIGHT_MONTHLY_REPEAT_TESTS_PASSED='+passed);

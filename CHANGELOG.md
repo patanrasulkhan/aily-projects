@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-11-07 — Monthly repeating tasks
+
+Choose Monthly in the task editor. The schedule keeps its original day of the
+month, uses the last day in shorter months, then returns to the original day:
+January 31 → February 28 → March 31. Task labels show the scheduled day and
+short-month rule. Changing the due date resets that day; other edits keep it.
+Undated tasks keep the day they are saved as monthly and advance from their
+local completion month. Late tasks advance one occurrence at a time.
+
+Completed history, duplicate prevention, and atomic saves apply through every
+completion control. Optional repeatMonthDay metadata survives version 1 backup
+restore; malformed schedules are discarded while keeping the task. Existing
+storage keys, legacy records, local-only data policy, relative assets, and
+dependencies remain unchanged.
+
+Validation: all 82 tests passed in JavaScriptCore in America/New_York and
+Pacific/Auckland. All 76 existing tests remain unchanged. Six appended tests
+cover month-end recovery, leap/year/DST boundaries, undated/late completion,
+backups and malformed metadata, editing/stopping, editor guidance and labels,
+all completion paths, failed-write retry, duplicate prevention, task limits,
+and calendar overflow. UI handlers were exercised through the dependency-free
+browser harness; native browser layout and screen-reader behavior were not
+inspected.
+
 ## 2026-11-05 — Custom repeating task intervals
 
 Choose Every N days in the task editor and set a whole-day interval from 1 to

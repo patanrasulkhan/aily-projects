@@ -22,7 +22,7 @@ in the user's browser and existing backups must remain compatible.
 - [x] Add focus session history by week with a clear accessible chart (2026-10-31)
 - [x] Add daily and weekly task recurrence with tested calendar boundaries (2026-11-01)
 - [x] Extend task recurrence with custom day intervals (1–365 days) (2026-11-05)
-- [ ] Add monthly task recurrence with an explicit month-end rule
+- [x] Add monthly task recurrence with an explicit month-end rule (2026-11-07)
 - [ ] Add an accessible light/dark theme setting that persists
 - [ ] Add an onboarding tour with explicit demo-data controls
 - [ ] Add optional CSV export for tasks and focus history
@@ -33,7 +33,32 @@ add regression coverage, and describe the change in CHANGELOG.md. Avoid busywork
 new dependencies, remote APIs, accounts, payments, or storing data in the repository.
 Keep the current UI polished and responsive. Do not delete or weaken existing tests.
 
-## Latest validation — 2026-11-05
+## Latest validation — 2026-11-07
+
+Added Monthly to the task editor and schedule labels throughout task views.
+Monthly schedules retain the original day, clamp to the last day of shorter
+months, then return to the original day (January 31 → February 28 → March 31).
+Changing the due date resets the scheduled day; other edits preserve it.
+Undated tasks use the day they are saved as monthly and advance from the local
+completion month. Late tasks advance once, retaining completed history and
+duplicate prevention. Editor guidance explains the rule and stopping repeats.
+
+Optional repeatMonthDay metadata round trips in version 1 backups. Malformed
+monthly schedules are discarded without dropping tasks. Legacy data, storage
+keys, relative URLs, browser-local policy, and dependencies are unchanged.
+Completion and successor creation still save atomically.
+
+Validation: all 82 tests passed in JavaScriptCore under America/New_York and
+Pacific/Auckland. All 76 prior tests are unchanged; six appended regressions
+cover month ends, leap/year/DST boundaries, original-day recovery, undated and
+late completion, backup restoration, invalid metadata, schedule edits/stopping,
+labels and editor guidance, all four completion paths, failed saves/retry,
+duplicate prevention, task limits, and calendar overflow. UI events use the
+existing dependency-free browser harness; native layout and screen-reader
+behavior were not inspected.
+
+## Previous validation — 2026-11-05
+
 
 Added Every N days to the task editor with a labeled 1–365 whole-day interval,
 visible schedule labels, and guidance. Custom schedules advance from the due

@@ -12,7 +12,7 @@
     if (input.tasks.length > 3000 || input.habits.length > 100 || input.notes.length > 1000 || input.sessions.length > 10000) throw new Error('This backup is too large.');
     const state = empty(); state.sample=!!input.sample;
     const unique = items => { const seen = new Set(); return items.filter(x => {if(!x.id || seen.has(x.id)) return false; seen.add(x.id); return true;}); };
-    state.tasks = unique(input.tasks.filter(x=>x && typeof x==='object').map(t => ({id:text(t.id,100),title:text(t.title,200),description:text(t.description,2000),project:text(t.project,60)||'Personal',priority:['high','medium','low'].includes(t.priority)?t.priority:'medium',status:['todo','doing','done'].includes(t.status)?t.status:'todo',due:validDay(t.due)?t.due:'',...(['daily','weekly'].includes(t.repeat)?{repeat:t.repeat}:t.repeat==='custom'&&Number.isInteger(t.repeatEvery)&&t.repeatEvery>=1&&t.repeatEvery<=365?{repeat:'custom',repeatEvery:t.repeatEvery}:{}),...(t.repeatGenerated===true?{repeatGenerated:true}:{}),createdAt:text(t.createdAt,40),completedAt:t.status==='done'?text(t.completedAt,40):''})).filter(t=>t.title));
+    state.tasks = unique(input.tasks.filter(x=>x && typeof x==='object').map(t => ({id:text(t.id,100),title:text(t.title,200),description:text(t.description,2000),project:text(t.project,60)||'Personal',priority:['high','medium','low'].includes(t.priority)?t.priority:'medium',status:['todo','doing','done'].includes(t.status)?t.status:'todo',due:validDay(t.due)?t.due:'',...(['daily','weekly'].includes(t.repeat)?{repeat:t.repeat}:t.repeat==='monthly'&&Number.isInteger(t.repeatMonthDay)&&t.repeatMonthDay>=1&&t.repeatMonthDay<=31?{repeat:'monthly',repeatMonthDay:t.repeatMonthDay}:t.repeat==='custom'&&Number.isInteger(t.repeatEvery)&&t.repeatEvery>=1&&t.repeatEvery<=365?{repeat:'custom',repeatEvery:t.repeatEvery}:{}),...(t.repeatGenerated===true?{repeatGenerated:true}:{}),createdAt:text(t.createdAt,40),completedAt:t.status==='done'?text(t.completedAt,40):''})).filter(t=>t.title));
     state.habits = unique(input.habits.filter(x=>x && typeof x==='object').map(h=>({id:text(h.id,100),title:text(h.title,100),...(Number.isInteger(h.weeklyTarget)&&h.weeklyTarget>=1&&h.weeklyTarget<=7?{weeklyTarget:h.weeklyTarget}:{}),days:[...new Set((Array.isArray(h.days)?h.days:[]).filter(validDay))].sort()})).filter(h=>h.title));
     state.notes = unique(input.notes.filter(x=>x && typeof x==='object').map(n=>({id:text(n.id,100),title:text(n.title,100)||'Untitled note',body:typeof n.body==='string'?n.body.slice(0,30000):'',pinned:!!n.pinned,updatedAt:text(n.updatedAt,40),...(text(n.folder,60)?{folder:text(n.folder,60)}:{})})));
     state.sessions = unique(input.sessions.filter(x=>x && typeof x==='object' && validDay(x.day) && Number.isFinite(x.minutes) && x.minutes>0 && x.minutes<=180).map(x=>({id:text(x.id,100),day:x.day,minutes:x.minutes})));
@@ -21,20 +21,28 @@
     return state;
   }
   function validateRepeat(input) {
+    if(input.repeat==='monthly'&&(!Number.isInteger(input.repeatMonthDay)||input.repeatMonthDay<1||input.repeatMonthDay>31)) throw new Error('Choose a monthly day from 1 to 31.');
     if(input.repeat==='custom'&&(!Number.isInteger(input.repeatEvery)||input.repeatEvery<1||input.repeatEvery>365)) throw new Error('Choose a repeat interval from 1 to 365 whole days.');
   }
   function addTask(state, input, now = new Date()) {
+    if(input.repeat==='monthly') input={...input,repeatMonthDay:input.repeatMonthDay===undefined?Number((validDay(input.due)?input.due:dayKey(now)).slice(8)):input.repeatMonthDay};
     validateRepeat(input);
     const title = text(input.title,200); if(!title) throw new Error('Give your task a title.');
     if(state.tasks.length>=3000) throw new Error('Task limit reached. Export a backup before clearing old tasks.');
     const task = normalize({...empty(),tasks:[{...input,id:uid(),title,createdAt:new Date(now).toISOString(),completedAt:input.status==='done'?new Date(now).toISOString():''}]}).tasks[0];
     return {...state,tasks:[...state.tasks,task]};
   }
-  function nextTaskDay(due,repeat,now=new Date(),repeatEvery) {
-    validateRepeat({repeat,repeatEvery});
+  function nextTaskDay(due,repeat,now=new Date(),repeatEvery,repeatMonthDay) {
+    if(repeat==='monthly'&&repeatMonthDay===undefined)repeatMonthDay=Number((validDay(due)?due:dayKey(now)).slice(8));
+    validateRepeat({repeat,repeatEvery,repeatMonthDay});
     const base=validDay(due)?due:dayKey(now);
     const d=new Date(base+'T12:00:00');
-    d.setDate(d.getDate()+(repeat==='custom'?repeatEvery:repeat==='weekly'?7:1));
+    if(repeat==='monthly'){
+      // Move from day one to avoid overflow, then clamp without losing the anchor.
+      d.setDate(1);d.setMonth(d.getMonth()+1);
+      const end=new Date(d);end.setMonth(end.getMonth()+1);end.setDate(0);
+      d.setDate(Math.min(repeatMonthDay,end.getDate()));
+    }else d.setDate(d.getDate()+(repeat==='custom'?repeatEvery:repeat==='weekly'?7:1));
     const result=dayKey(d);
     if(!validDay(result)) throw new Error('The next repeat is outside the supported calendar.');
     return result;
@@ -45,12 +53,13 @@
       if(t.id!==id)return t;
       // Completion bookkeeping belongs to the model, never to editor input.
       const next={...t,...patch,id:t.id,createdAt:t.createdAt,repeatGenerated:t.repeatGenerated};
+      if(next.repeat==='monthly'&&(t.repeat!=='monthly'||(Object.prototype.hasOwnProperty.call(patch,'due')&&patch.due!==t.due))) next.repeatMonthDay=Number((validDay(next.due)?next.due:dayKey(now)).slice(8));
       validateRepeat(next);
       if(!text(next.title,200))throw new Error('Give your task a title.');
       next.completedAt=next.status==='done'?(t.completedAt||new Date(now).toISOString()):'';
       const clean=normalize({...empty(),tasks:[next]}).tasks[0];
       if(t.status!=='done'&&clean.status==='done'&&clean.repeat&&!t.repeatGenerated){
-        successor=addTask({...state,tasks:state.tasks},{title:clean.title,description:clean.description,project:clean.project,priority:clean.priority,repeat:clean.repeat,repeatEvery:clean.repeatEvery,due:nextTaskDay(clean.due,clean.repeat,now,clean.repeatEvery)},now).tasks[state.tasks.length];
+        successor=addTask({...state,tasks:state.tasks},{title:clean.title,description:clean.description,project:clean.project,priority:clean.priority,repeat:clean.repeat,repeatEvery:clean.repeatEvery,repeatMonthDay:clean.repeatMonthDay,due:nextTaskDay(clean.due,clean.repeat,now,clean.repeatEvery,clean.repeatMonthDay)},now).tasks[state.tasks.length];
         clean.repeatGenerated=true;
       }
       return clean;
