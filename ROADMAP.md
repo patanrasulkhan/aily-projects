@@ -23,7 +23,7 @@ in the user's browser and existing backups must remain compatible.
 - [x] Add daily and weekly task recurrence with tested calendar boundaries (2026-11-01)
 - [x] Extend task recurrence with custom day intervals (1–365 days) (2026-11-05)
 - [x] Add monthly task recurrence with an explicit month-end rule (2026-11-07)
-- [ ] Add an accessible light/dark theme setting that persists
+- [x] Add an accessible light/dark theme setting that persists (2026-11-08)
 - [ ] Add an onboarding tour with explicit demo-data controls
 - [ ] Add optional CSV export for tasks and focus history
 - [ ] Improve accessibility based on a keyboard-only walkthrough
@@ -33,7 +33,31 @@ add regression coverage, and describe the change in CHANGELOG.md. Avoid busywork
 new dependencies, remote APIs, accounts, payments, or storing data in the repository.
 Keep the current UI polished and responsive. Do not delete or weaken existing tests.
 
-## Latest validation — 2026-11-07
+## Latest validation — 2026-11-08
+
+Added a labeled Appearance selector in Workspace & backups with System, Light,
+and Dark choices. System follows device appearance changes automatically; an
+explicit choice overrides the device. Appearance loads before styles, includes
+native controls and visible keyboard focus, and covers all workspace views,
+editors, notices, charts, and responsive navigation.
+
+The separate daylight.theme.v1 key persists the device preference and follows
+updates from other tabs. Invalid/missing preferences fall back to System;
+blocked reads remain usable and failed writes retain the previous selection
+with feedback. Theme changes do not render or save workspace content. Workspace
+version 1, backups, existing storage keys, and the browser-local policy remain
+unchanged. No dependencies or network calls were added.
+
+Validation: all 87 tests passed in JavaScriptCore in America/New_York and
+Pacific/Auckland. All 82 existing tests are unchanged; five appended regressions
+cover startup defaults, invalid preferences, persistence/reload, storage failure,
+cross-tab updates/clearing, actual settings change events, workspace isolation,
+accessible selector markup, early loading, system CSS, native controls and focus.
+UI checks use the dependency-free browser harness; native browser visual layout
+and screen-reader behavior were not inspected.
+
+## Previous validation — 2026-11-07
+
 
 Added Monthly to the task editor and schedule labels throughout task views.
 Monthly schedules retain the original day, clamp to the last day of shorter

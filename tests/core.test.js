@@ -563,3 +563,51 @@ test('monthly task limits and calendar overflow leave completion unchanged',()=>
   throws(()=>C.updateTask(s,'monthly-0',{status:'done'},fixed));eq(JSON.stringify(s),before);
 });
 log('DAYLIGHT_MONTHLY_REPEAT_TESTS_PASSED='+passed);
+
+// Appearance has its own device-local key; workspace version 1 remains untouched.
+function themeFile(path){return typeof require==='function'?require('fs').readFileSync(path,'utf8'):readFile(path);}
+function themeBrowser(saved,blocked){
+  const handlers={},attrs={},writes=[],nodes={},events={};let fail=!!blocked;
+  const node=s=>nodes[s]||(nodes[s]={value:'',innerHTML:'',textContent:'',showModal(){},close(){},classList:{add(){},remove(){},toggle(){}}});
+  const doc={documentElement:{setAttribute(k,v){attrs[k]=v;}},querySelector:node,querySelectorAll(){return [];},addEventListener(k,fn){events[k]=fn;}};
+  const workspace=JSON.stringify(C.demo(fixed));
+  const storage={getItem(k){if(fail)throw Error('Unavailable');return k==='daylight.theme.v1'?saved:workspace;},setItem(k,v){if(fail)throw Error('Full');writes.push([k,v]);saved=v;}};
+  const win={Daylight:C,addEventListener(k,fn){handlers[k]=fn;}};
+  new Function('window','document','localStorage',themeFile('web/theme.js'))(win,doc,storage);
+  return {win,attrs,writes,node,fail(v){fail=v;},storage(event){handlers.storage(event);},
+    app(){new Function('window','document','localStorage','location','setInterval','setTimeout','clearTimeout',themeFile('web/app.js'))(win,doc,storage,{hash:'#tasks'},()=>{},()=>{},()=>{});},
+    settings(){events.click({target:{closest(s){return s==='[data-action]'?{dataset:{action:'settings'}}:null;}}});},
+    change(value){const target=node('#theme-setting');target.id='theme-setting';target.dataset={};target.value=value;events.change({target});}};
+}
+test('appearance defaults safely and loads only valid saved preferences without writes',()=>{
+  for(const [saved,want] of [[null,'system'],['bad','system'],['"dark"','system'],['light','light'],['dark','dark'],['system','system']]){
+    const b=themeBrowser(saved);eq(b.win.DaylightTheme.get(),want);eq(b.attrs['data-theme'],want);eq(b.writes,[]);
+  }
+  const b=themeBrowser('dark',true);eq(b.attrs['data-theme'],'system');eq(b.writes,[]);
+});
+test('appearance persists separately and failed or invalid saves retain the previous choice',()=>{
+  const b=themeBrowser('light');assert(b.win.DaylightTheme.set('dark'));eq(b.attrs['data-theme'],'dark');eq(b.writes,[['daylight.theme.v1','dark']]);
+  b.fail(true);assert(!b.win.DaylightTheme.set('light'));eq(b.win.DaylightTheme.get(),'dark');eq(b.attrs['data-theme'],'dark');
+  b.fail(false);assert(!b.win.DaylightTheme.set('<script>'));eq(b.writes.length,1);
+  assert(b.win.DaylightTheme.set('system'));eq(b.attrs['data-theme'],'system');eq(themeBrowser(b.writes[1][1]).win.DaylightTheme.get(),'system');
+});
+test('appearance synchronizes tabs and resets to system when the preference is cleared',()=>{
+  const b=themeBrowser('dark');b.storage({key:'daylight.workspace.v1',newValue:'light'});eq(b.attrs['data-theme'],'dark');
+  for(const value of ['light','dark','system',null,'invalid']){b.storage({key:'daylight.theme.v1',newValue:value});eq(b.attrs['data-theme'],value==='light'||value==='dark'?value:'system');}
+  b.storage({key:null,newValue:null});eq(b.attrs['data-theme'],'system');eq(b.writes,[]);
+});
+test('settings expose a labeled theme selector and apply changes without saving workspace data',()=>{
+  const b=themeBrowser('dark');b.app();const before=b.node('#main').innerHTML;b.settings();
+  const html=b.node('#editor-fields').innerHTML;assert(html.includes('for="theme-setting"'));assert(html.includes('aria-describedby="theme-help"'));assert(html.includes('value="dark" selected'));assert(html.includes('System (device setting)'));assert(html.includes('separately from workspace backups'));
+  b.change('light');eq(b.attrs['data-theme'],'light');eq(b.node('#main').innerHTML,before);eq(b.writes,[['daylight.theme.v1','light']]);
+  b.fail(true);b.change('dark');eq(b.node('#theme-setting').value,'light');eq(b.attrs['data-theme'],'light');assert(b.node('#toast').textContent.includes('Could not save appearance'));
+  b.fail(false);b.change('system');b.settings();assert(b.node('#editor-fields').innerHTML.includes('value="system" selected'));eq(b.writes.length,2);
+});
+test('theme loads before styles and supports system changes native controls and keyboard focus',()=>{
+  const html=themeFile('web/index.html'),css=themeFile('web/styles.css');
+  assert(html.indexOf('src="theme.js"')<html.indexOf('href="styles.css"'));assert(!html.includes('src="/'));
+  assert(css.includes('@media(prefers-color-scheme:dark)'));assert(css.includes(':root[data-theme="dark"]{color-scheme:dark'));
+  assert(css.includes(':root:not([data-theme="light"]):not([data-theme="dark"])'));assert(css.includes(':root{color-scheme:light}'));
+  for(const selector of ['.field input','.note-editor textarea','.focus-week-table','.task-check:checked','.habit-day button.checked','button:focus-visible'])assert(css.includes(':root[data-theme="dark"] '+selector));
+});
+log('DAYLIGHT_THEME_TESTS_PASSED='+passed);

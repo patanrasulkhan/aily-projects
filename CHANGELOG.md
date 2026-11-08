@@ -1,5 +1,27 @@
 # Changelog
 
+## 2026-11-08 — Persistent appearance settings
+
+Choose System, Light, or Dark under Appearance in Workspace & backups. System
+follows your device automatically; explicit choices persist across reloads.
+The dark palette covers every workspace view, dialogs, native form controls,
+charts, status messages, and keyboard focus while retaining the responsive layout.
+Appearance loads before styles to avoid showing the wrong saved theme first.
+
+The preference stays on this device, separate from version 1 workspace backups.
+Changes synchronize across tabs without saving or rerendering workspace data.
+Unavailable storage falls back safely; failed preference saves keep the prior
+choice and show a retry message. Existing data, backups, local URLs, dependencies,
+and the browser-local data policy are unchanged.
+
+Validation: all 87 tests passed in JavaScriptCore under America/New_York and
+Pacific/Auckland. All 82 prior tests remain unchanged. Five appended regressions
+cover defaults, malformed preferences, persistence, storage failures, cross-tab
+updates, settings events, workspace isolation, labeled controls, early loading,
+system appearance CSS, native controls, and keyboard focus. Browser behavior was
+exercised through the dependency-free harness; native visual layout and
+screen-reader behavior were not inspected.
+
 ## 2026-11-07 — Monthly repeating tasks
 
 Choose Monthly in the task editor. The schedule keeps its original day of the
