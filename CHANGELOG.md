@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-11-10 — Workspace tour and explicit sample choices
+
+Take an optional five-step tour from Overview or Workspace & backups. Learn
+where to plan tasks, track habits, capture notes, focus, find keyboard shortcuts,
+and back up browser-local data. Move backward or forward, close at any time,
+and replay whenever needed. The native modal has named controls, step-heading
+focus, opener restoration, and scrolling on short screens, using the existing
+light/dark palette.
+
+New visits begin with an empty workspace. Existing saved workspaces are kept.
+The final step offers Export workspace backup, Load sample workspace, Start a
+fresh workspace, and Keep workspace & finish. Samples and fresh starts explicitly
+confirm replacement of the workspace; canceling or a failed save retains saved
+data. Failed recovery resets also retain corruption protection. Successful
+replacement resets stale filters and history browsing. Taking the tour never
+writes workspace data or changes the current view; no tracking key is stored.
+Version 1 backups, storage keys, local URLs, and dependencies are unchanged.
+
+Validation: all 93 tests passed in JavaScriptCore in America/New_York and
+Pacific/Auckland. All 87 existing tests are unchanged. Six appended regressions
+cover empty first visits, tour navigation/replay/focus, unchanged records and
+timers, replacement confirmation and cancellation, failed-save retry, corrupt
+storage recovery, other-tab updates, accessible markup, and responsive styling.
+UI events use the dependency-free harness; native browser layout, modal keyboard
+trapping, and screen-reader behavior were not inspected.
+
 ## 2026-11-08 — Persistent appearance settings
 
 Choose System, Light, or Dark under Appearance in Workspace & backups. System

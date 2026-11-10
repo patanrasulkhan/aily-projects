@@ -24,7 +24,7 @@ in the user's browser and existing backups must remain compatible.
 - [x] Extend task recurrence with custom day intervals (1–365 days) (2026-11-05)
 - [x] Add monthly task recurrence with an explicit month-end rule (2026-11-07)
 - [x] Add an accessible light/dark theme setting that persists (2026-11-08)
-- [ ] Add an onboarding tour with explicit demo-data controls
+- [x] Add an onboarding tour with explicit demo-data controls (2026-11-10)
 - [ ] Add optional CSV export for tasks and focus history
 - [ ] Improve accessibility based on a keyboard-only walkthrough
 
@@ -33,7 +33,32 @@ add regression coverage, and describe the change in CHANGELOG.md. Avoid busywork
 new dependencies, remote APIs, accounts, payments, or storing data in the repository.
 Keep the current UI polished and responsive. Do not delete or weaken existing tests.
 
-## Latest validation — 2026-11-08
+## Latest validation — 2026-11-10
+
+Added a five-step, optional workspace tour from Overview and Workspace & backups.
+It explains tasks, habits, notes, focus, keyboard help, local storage, and backups.
+Back/Next, close/Escape, step-heading focus, opener restoration, and a scrollable
+native modal support keyboard use and short screens. Replay starts at step one.
+The tour never navigates away from the current view or saves workspace content.
+
+New visits now start empty rather than implicitly loading samples. The final
+tour step offers backup export, confirmed sample loading, confirmed fresh start,
+and Keep workspace & finish. Existing sample workspaces stay intact. Replacement
+failures keep data and the tour available for retry, including corruption
+protection; successful replacements clear stale view filters. Version 1 backups,
+storage keys, existing workspace records, relative assets, dependencies, and
+browser-local policy remain unchanged. No onboarding tracking key was added.
+
+Validation: all 93 tests passed in JavaScriptCore under America/New_York and
+Pacific/Auckland. All 87 previous tests remain unchanged; six appended tests
+cover first visits, bounded navigation, replay and focus, unchanged records and
+timers, cancellation, replacement failure/retry, corrupt storage recovery,
+cross-tab updates, modal markup, and responsive theme-aware styling. UI events
+use the dependency-free browser harness; native browser layout, modal keyboard
+trapping, and screen-reader behavior were not inspected.
+
+## Previous validation — 2026-11-08
+
 
 Added a labeled Appearance selector in Workspace & backups with System, Light,
 and Dark choices. System follows device appearance changes automatically; an

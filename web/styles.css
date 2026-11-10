@@ -84,3 +84,8 @@
 :root:not([data-theme="light"]):not([data-theme="dark"]) .day.current b{color:white}
 :root:not([data-theme="light"]):not([data-theme="dark"]) button:focus-visible,:root:not([data-theme="light"]):not([data-theme="dark"]) a:focus-visible,:root:not([data-theme="light"]):not([data-theme="dark"]) input:focus-visible,:root:not([data-theme="light"]):not([data-theme="dark"]) select:focus-visible,:root:not([data-theme="light"]):not([data-theme="dark"]) textarea:focus-visible{outline-color:#cfbaff}
 }
+
+/* The tour shares workspace colors and native modal keyboard behavior. */
+#tour{max-height:calc(100dvh - 32px);overflow-y:auto}
+#tour-step-title:focus{outline:2px solid var(--purple);outline-offset:5px}
+.tour-navigation{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-top:24px}

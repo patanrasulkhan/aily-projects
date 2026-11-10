@@ -611,3 +611,64 @@ test('theme loads before styles and supports system changes native controls and 
   for(const selector of ['.field input','.note-editor textarea','.focus-week-table','.task-check:checked','.habit-day button.checked','button:focus-visible'])assert(css.includes(':root[data-theme="dark"] '+selector));
 });
 log('DAYLIGHT_THEME_TESTS_PASSED='+passed);
+
+// Onboarding is read-only until an explicit confirmed workspace replacement.
+function tourBrowser(raw){
+  const nodes={},events={},windowEvents={},writes=[],questions=[],opener={focus(){opener.focused=true;}};
+  let fail=false,answer=false,saved=raw;
+  const node=s=>nodes[s]||(nodes[s]={value:'',innerHTML:'',textContent:'',open:false,dataset:{},
+    focus(){this.focused=true;},showModal(){this.open=true;},close(){const open=this.open;this.open=false;if(open&&this.onclose)this.onclose();},
+    addEventListener(k,fn){if(k==='close')this.onclose=fn;},classList:{add(){},remove(){},toggle(){}}});
+  const doc={activeElement:opener,querySelector(s){if(['#note-body','#note-title','#note-folder','#note-save','#note-folder-filter','#note-folders'].includes(s))return null;return node(s);},querySelectorAll(){return [];},addEventListener(k,fn){events[k]=fn;}};
+  const storage={getItem(){return saved;},setItem(k,v){if(fail)throw Error('Full');writes.push([k,v]);saved=v;}};
+  new Function('window','document','localStorage','location','setInterval','setTimeout','clearTimeout','confirm',themeFile('web/app.js'))(
+    {Daylight:C,addEventListener(k,fn){windowEvents[k]=fn;}},doc,storage,{hash:'#overview'},()=>{},()=>{},()=>{},q=>{questions.push(q);return answer;});
+  return {node,writes,questions,opener,raw:()=>saved,answer(v){answer=v;},fail(v){fail=v;},
+    click(action){events.click({target:{closest(s){return s==='[data-action]'?{dataset:{action}}:null;}}});},
+    external(value){saved=value;windowEvents.storage({key:'daylight.workspace.v1',newValue:value});}};
+}
+test('first visit starts empty and offers tour without automatic writes or sample data',()=>{
+  const b=tourBrowser(null);eq(b.writes,[]);assert(b.node('#main').innerHTML.includes('Take a quick tour'));
+  assert(b.node('#main').innerHTML.includes('A fresh start'));assert(!b.node('#main').innerHTML.includes('Outline the next big idea'));
+  b.click('tour');assert(b.node('#tour').open);assert(b.node('#tour-content').innerHTML.includes('New workspaces start empty'));
+  eq(b.writes,[]);eq(b.raw(),null);
+});
+test('tour steps are bounded replayable and preserve all workspace records and timer',()=>{
+  const s=C.startTimer(C.demo(fixed),25,fixed.getTime()),raw=JSON.stringify(s),b=tourBrowser(raw);
+  b.click('tour');b.click('tour-back');assert(b.node('#tour-content').innerHTML.includes('Step 1 of 5'));
+  const titles=['Turn intentions into steps','Build a rhythm, catch a thought','Give one thing your attention','Make this space yours'];
+  titles.forEach(title=>{b.click('tour-next');assert(b.node('#tour-content').innerHTML.includes(title));assert(b.node('#tour-step-title').focused);});
+  b.click('tour-next');assert(b.node('#tour-content').innerHTML.includes('Step 5 of 5'));assert(b.node('#tour-content').innerHTML.includes('Export workspace backup'));
+  b.click('close-tour');assert(!b.node('#tour').open);assert(b.opener.focused);eq(b.raw(),raw);eq(b.writes,[]);
+  b.click('settings');assert(b.node('#editor-fields').innerHTML.includes('Take the workspace tour'));
+  b.click('tour');assert(!b.node('#editor').open);assert(b.node('#tour-content').innerHTML.includes('Step 1 of 5'));
+  b.click('close-tour');assert(b.node('[data-action="settings"]').focused);eq(b.writes,[]);
+});
+test('sample and fresh controls require confirmation and preserve data on failed saves',()=>{
+  for(const action of ['demo','fresh']){
+    const raw=JSON.stringify(C.startTimer(C.demo(fixed),25,fixed.getTime())),b=tourBrowser(raw);
+    b.click('tour');for(let i=0;i<4;i++)b.click('tour-next');
+    b.click(action);eq(b.raw(),raw);eq(b.writes,[]);assert(b.node('#tour').open);assert(b.questions[0].includes('Export a backup first'));
+    b.answer(true);b.fail(true);b.click(action);eq(b.raw(),raw);eq(b.writes,[]);assert(b.node('#tour').open);assert(b.node('#toast').textContent.includes('Could not save'));
+    b.fail(false);b.click(action);eq(b.writes.length,1);eq(b.writes[0][0],'daylight.workspace.v1');assert(!b.node('#tour').open);
+    const s=JSON.parse(b.raw());eq(C.normalize(s),s);eq(s.timer,null);eq(s.sample,action==='demo');eq(s.tasks.length,action==='demo'?4:0);
+  }
+});
+test('failed recovery replacement retains corruption protection and raw saved data',()=>{
+  const b=tourBrowser('{unreadable');assert(b.node('#main').innerHTML.includes('has not been overwritten'));
+  b.answer(true);b.fail(true);b.click('demo');eq(b.raw(),'{unreadable');eq(b.writes,[]);
+  b.click('tour');b.click('close-tour');eq(b.raw(),'{unreadable');
+  b.fail(false);b.click('fresh');eq(JSON.parse(b.raw()),C.empty());eq(b.writes.length,1);
+});
+test('tour survives cross-tab updates without restoring stale workspace contents',()=>{
+  const b=tourBrowser(JSON.stringify(C.demo(fixed)));b.click('tour');
+  const next=C.addTask(C.empty(),{title:'Other tab task'},fixed),raw=JSON.stringify(next);b.external(raw);
+  b.click('tour-next');b.click('close-tour');eq(b.raw(),raw);eq(b.writes,[]);assert(b.node('#main').innerHTML.includes('Other tab task'));
+});
+test('tour uses named native modal explicit replacement controls and responsive theme colors',()=>{
+  const html=themeFile('web/index.html'),css=themeFile('web/styles.css');
+  assert(html.includes('<dialog id="tour" aria-labelledby="tour-title">'));assert(html.includes('aria-label="Close workspace tour"'));
+  assert(html.includes('Escape closes the tour'));assert(html.includes('Replay it anytime'));
+  assert(css.includes('#tour{max-height:calc(100dvh - 32px);overflow-y:auto}'));assert(css.includes('#tour-step-title:focus{outline:2px solid var(--purple)'));
+});
+log('DAYLIGHT_TOUR_TESTS_PASSED='+passed);
