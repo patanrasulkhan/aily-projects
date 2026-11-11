@@ -1,5 +1,32 @@
 # Changelog
 
+## 2026-11-11 — Task and focus CSV exports
+
+Download all tasks or all completed focus history as separate CSV files from
+Workspace & backups. Exports include every stored record regardless of view
+filters or selected week. Task columns retain notes, dates, status, completion
+history, and repeat settings; focus history keeps individual session dates and
+exact decimal minutes. Breaks and the active timer are excluded. Empty workspaces
+produce reports with column headers.
+
+Quoted cells preserve commas, quotes, multiline text, and Unicode; downloads
+include a UTF-8 BOM. Formula-like spreadsheet text receives a protective
+apostrophe, explained beside the controls. CSV is a spreadsheet report; JSON
+workspace backups remain the restore format. Downloads stay local, release their
+Blob URLs, and never save workspace data. Unreadable storage blocks misleading
+empty CSV exports and directs users to the existing raw JSON recovery backup.
+Version 1 persistence, backups, local-only policy, local asset URLs, and existing
+responsive appearance remain unchanged. No dependencies or network calls added.
+
+Validation: all 98 tests passed in JavaScriptCore in America/New_York and
+Pacific/Auckland. All 93 existing tests are unchanged. Five appended regressions
+cover complete task/recurrence data, CSV escaping, formula protection, decimal
+focus minutes, empty reports, backup compatibility, download events, BOM/MIME,
+filenames, filter-independent scope, URL cleanup, no storage writes, and corrupt
+storage recovery guidance. UI events use the dependency-free harness; native
+browser downloads, spreadsheet applications, visual layout, and screen-reader
+behavior were not inspected.
+
 ## 2026-11-10 — Workspace tour and explicit sample choices
 
 Take an optional five-step tour from Overview or Workspace & backups. Learn

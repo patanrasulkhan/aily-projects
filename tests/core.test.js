@@ -672,3 +672,61 @@ test('tour uses named native modal explicit replacement controls and responsive 
   assert(css.includes('#tour{max-height:calc(100dvh - 32px);overflow-y:auto}'));assert(css.includes('#tour-step-title:focus{outline:2px solid var(--purple)'));
 });
 log('DAYLIGHT_TOUR_TESTS_PASSED='+passed);
+
+// CSV exports are read-only spreadsheet reports; JSON remains the restore format.
+function parseReportCSV(source){
+  const rows=[];let row=[],cell='',quoted=false;
+  for(let i=0;i<source.length;i++){
+    const ch=source[i];
+    if(ch==='"'){if(quoted&&source[i+1]==='"'){cell+='"';i++;}else quoted=!quoted;}
+    else if(!quoted&&ch===','){row.push(cell);cell='';}
+    else if(!quoted&&ch==='\r'&&source[i+1]==='\n'){row.push(cell);rows.push(row);row=[];cell='';i++;}
+    else cell+=ch;
+  }
+  assert(!quoted);return rows;
+}
+test('task CSV preserves complete records multiline text unicode and recurrence without mutation',()=>{
+  let s=C.addTask(C.empty(),{title:'Plan, "café" ✦',description:'First line\r\nSecond, "line"\n第三',project:'Work',due:'2026-11-11',repeat:'monthly'},fixed);
+  s=C.updateTask(s,s.tasks[0].id,{status:'done'},fixed);
+  s=C.addTask(s,{title:'Interval',repeat:'custom',repeatEvery:365},fixed);
+  const before=JSON.stringify(s),rows=parseReportCSV(C.tasksCSV(s));
+  eq(rows.length,4);eq(rows[0].length,13);rows.forEach(r=>eq(r.length,13));
+  eq(rows[1],[s.tasks[0].id,'Plan, "café" ✦','First line\r\nSecond, "line"\n第三','Work','medium','done','2026-11-11','monthly','','11','yes',fixed.toISOString(),fixed.toISOString()]);
+  eq(rows[2][5],'todo');eq(rows[2][6],'2026-12-11');eq(rows[3][8],'365');eq(rows[3][9],'');
+  eq(JSON.stringify(s),before);eq(C.tasksCSV(C.normalize(JSON.parse(before))),C.tasksCSV(s));
+});
+test('CSV protects formula-like user text including whitespace prefixes and quotes',()=>{
+  for(const value of ['=1+1','+SUM(A1:A2)','-2+3','@SUM(1)','  =1','\t=1','\r=1','\n=1','\uFEFF=1','="quoted",value']){
+    const s=C.addTask(C.empty(),{title:'Safe'},fixed);s.tasks[0].title=value;s.tasks[0].description=value;s.tasks[0].project=value;s.tasks[0].id=value;
+    const row=parseReportCSV(C.tasksCSV(s))[1];for(const i of [0,1,2,3])eq(row[i],"'"+value);
+  }
+  const s=C.addTask(C.empty(),{title:'Ordinary - text',description:"O'Brien"},fixed);
+  eq(parseReportCSV(C.tasksCSV(s))[1][1],'Ordinary - text');eq(parseReportCSV(C.tasksCSV(s))[1][2],"O'Brien");
+});
+test('focus CSV exports every recorded session with exact dates and decimal minutes excluding active timer',()=>{
+  const s=C.startTimer({...C.empty(),sessions:[{id:'one',day:'2024-02-29',minutes:0.25},{id:'two',day:'2026-11-11',minutes:180},{id:'three',day:'2026-11-11',minutes:1.125}]},5,fixed.getTime(),'Break'),before=JSON.stringify(s);
+  eq(parseReportCSV(C.focusCSV(s)),[['Session ID','Date','Minutes'],['one','2024-02-29','0.25'],['two','2026-11-11','180'],['three','2026-11-11','1.125']]);
+  eq(JSON.stringify(s),before);eq(parseReportCSV(C.tasksCSV(C.empty())).length,1);eq(parseReportCSV(C.focusCSV(C.empty())),[['Session ID','Date','Minutes']]);
+});
+function csvBrowser(raw){
+  const nodes={},events={},blobs=[],downloads=[],revoked=[],pending=[],writes=[];
+  const node=s=>nodes[s]||(nodes[s]={innerHTML:'',value:'',dataset:{},textContent:'',focus(){},showModal(){},close(){},classList:{add(){},remove(){},toggle(){}}});
+  const doc={querySelector(s){if(s==='#note-body')return null;return node(s);},querySelectorAll(){return [];},addEventListener(k,fn){events[k]=fn;},createElement(tag){eq(tag,'a');return {click(){downloads.push({href:this.href,name:this.download});}};}};
+  new Function('window','document','localStorage','location','setInterval','setTimeout','clearTimeout','Blob','URL',themeFile('web/app.js'))(
+    {Daylight:C,addEventListener(){}},doc,{getItem(){return raw;},setItem(k,v){writes.push([k,v]);}}, {hash:'#tasks'},()=>{},fn=>{pending.push(fn);},()=>{},
+    function(parts,options){blobs.push({parts,options});},{createObjectURL(){return 'blob:local-report';},revokeObjectURL(url){revoked.push(url);}});
+  return {node,blobs,downloads,revoked,writes,finish(){pending.forEach(fn=>fn());},click(action){events.click({target:{closest(s){return s==='[data-action]'?{dataset:{action}}:null;}}});},filter(){events.change({target:{id:'project-filter',value:'Missing',dataset:{}}});}};
+}
+test('CSV download controls explain scope use local blobs and preserve workspace despite filters',()=>{
+  const s=C.demo(fixed);s.sessions=[{id:'old',day:'2020-01-01',minutes:1.5}];const raw=JSON.stringify(s),b=csvBrowser(raw);
+  b.filter();assert(b.node('#main').innerHTML.includes('0 of 4 tasks'));b.click('settings');
+  const html=b.node('#editor-fields').innerHTML;assert(html.includes('Export all tasks (CSV)'));assert(html.includes('Export all focus history (CSV)'));assert(html.includes('aria-describedby="csv-help"'));assert(html.includes('use a JSON workspace backup'));
+  b.click('export-tasks-csv');b.click('export-focus-csv');eq(b.blobs.length,2);
+  eq(b.blobs[0].parts,['\uFEFF',C.tasksCSV(s)]);eq(b.blobs[1].parts,['\uFEFF',C.focusCSV(s)]);eq(b.blobs[0].options.type,'text/csv;charset=utf-8');
+  eq(b.downloads.map(d=>d.name),['daylight-tasks-'+C.dayKey()+'.csv','daylight-focus-'+C.dayKey()+'.csv']);eq(b.downloads[0].href,'blob:local-report');
+  b.finish();eq(b.revoked,['blob:local-report','blob:local-report']);eq(b.writes,[]);
+});
+test('corrupt storage blocks misleading empty CSV and keeps raw recovery backup available',()=>{
+  const b=csvBrowser('{broken');b.click('export-tasks-csv');b.click('export-focus-csv');eq(b.blobs,[]);eq(b.writes,[]);assert(b.node('#toast').textContent.includes('Export workspace backup'));
+});
+log('DAYLIGHT_CSV_TESTS_PASSED='+passed);

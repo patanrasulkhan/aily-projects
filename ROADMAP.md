@@ -25,7 +25,7 @@ in the user's browser and existing backups must remain compatible.
 - [x] Add monthly task recurrence with an explicit month-end rule (2026-11-07)
 - [x] Add an accessible light/dark theme setting that persists (2026-11-08)
 - [x] Add an onboarding tour with explicit demo-data controls (2026-11-10)
-- [ ] Add optional CSV export for tasks and focus history
+- [x] Add optional CSV export for tasks and focus history (2026-11-11)
 - [ ] Improve accessibility based on a keyboard-only walkthrough
 
 Each daily run should finish one meaningful item or fix an observed bug,
@@ -33,7 +33,34 @@ add regression coverage, and describe the change in CHANGELOG.md. Avoid busywork
 new dependencies, remote APIs, accounts, payments, or storing data in the repository.
 Keep the current UI polished and responsive. Do not delete or weaken existing tests.
 
-## Latest validation — 2026-11-10
+## Latest validation — 2026-11-11
+
+Added separate Export all tasks (CSV) and Export all focus history (CSV) controls
+in Workspace & backups. Reports include every stored record regardless of task
+filters or selected week. Tasks include descriptions, statuses, dates, recurrence
+metadata, and completion history; focus reports preserve individual session dates
+and decimal minutes, excluding breaks and the active timer. Empty reports retain
+column headers. Guidance distinguishes spreadsheet reports from restorable JSON
+backups and explains date formats and protective apostrophes.
+
+CSV uses quoted cells, escaped quotes, CRLF rows, a UTF-8 BOM for downloaded files,
+and formula protection for potentially executable spreadsheet text. Downloads use
+local Blob URLs with cleanup and no storage writes. Corrupt storage blocks CSV
+rather than exporting misleading empty reports, while original JSON recovery
+remains available. Version 1 persistence, existing backups, browser-local policy,
+relative assets, dependencies, and responsive theme styling remain unchanged.
+
+Validation: all 98 tests passed in JavaScriptCore under America/New_York and
+Pacific/Auckland. All 93 previous tests remain unchanged; five appended tests
+cover multiline/quoted/Unicode text, formula prefixes, recurrence and completed
+records, backup compatibility, decimal minutes, empty exports, actual download
+handlers, filter-independent scope, BOM/MIME/filenames, URL cleanup, read-only
+storage, and corruption protection. UI checks use the dependency-free browser
+harness; native browser downloads, spreadsheet applications, visual layout, and
+screen-reader behavior were not inspected.
+
+## Previous validation — 2026-11-10
+
 
 Added a five-step, optional workspace tour from Overview and Workspace & backups.
 It explains tasks, habits, notes, focus, keyboard help, local storage, and backups.

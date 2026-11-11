@@ -106,6 +106,21 @@
   function resumeTimer(state,now=Date.now()) {return !state.timer?state:{...state,timer:{...state.timer,endAt:now+state.timer.remaining*1000}};}
   function finishTimer(state,now=new Date()) {if(!state.timer||remaining(state.timer,new Date(now).getTime())>0) return state; const timer=state.timer; const sessions=state.sessions.some(s=>s.id===timer.id)||timer.label==='Break'?state.sessions:[...state.sessions,{id:timer.id,day:dayKey(now),minutes:timer.duration/60}]; return {...state,timer:null,sessions};}
   function demo(now=new Date()) {let s=empty(); s.sample=true; const today=dayKey(now); const tomorrow=new Date(now); tomorrow.setDate(tomorrow.getDate()+1); for(const t of [{title:'Outline the next big idea',project:'Creative',priority:'high',due:today,status:'doing',description:'Start with the problem, then sketch three possible solutions.'},{title:'Plan the week ahead',project:'Personal',priority:'medium',due:today,status:'todo'},{title:'Read a chapter',project:'Learning',priority:'low',due:dayKey(tomorrow),status:'todo'},{title:'Clear the desk, clear the mind',project:'Personal',priority:'low',status:'done'}]) s=addTask(s,t,now); s.habits=[{id:uid(),title:'Move for 20 minutes',days:[]},{id:uid(),title:'Read a little',days:[today]},{id:uid(),title:'Make time to reflect',days:[]}]; s.notes=[{id:uid(),title:'A little room to think',body:'What would make today feel meaningful?\n\nUse this space for ideas, meeting notes, or a quick brain dump. Small steps count.',pinned:true,updatedAt:new Date(now).toISOString()}]; return s;}
-  const api = {VERSION,uid,dayKey,validDay,empty,normalize,addTask,updateTask,nextTaskDay,saveHabit,habitTarget,habitWeek,toggleHabit,streak,filterTasks,filterNotes,focusWeek,startTimer,remaining,pauseTimer,resumeTimer,finishTimer,demo};
+  // Quote every cell; neutralize spreadsheet formulas even after leading whitespace.
+  function csv(rows) {
+    return rows.map(row=>row.map(value=>{
+      let cell=String(value==null?'':value);
+      if(/^[\s\uFEFF]*[=+\-@]/.test(cell)||/^[\t\r\n]/.test(cell))cell="'"+cell;
+      return '"'+cell.replace(/"/g,'""')+'"';
+    }).join(',')).join('\r\n')+'\r\n';
+  }
+  function tasksCSV(state) {
+    return csv([['ID','Title','Description','Project','Priority','Status','Due date','Repeat','Repeat interval (days)','Monthly day','Next repeat created','Created at','Completed at'],
+      ...state.tasks.map(t=>[t.id,t.title,t.description,t.project,t.priority,t.status,t.due,t.repeat||'',t.repeat==='custom'?t.repeatEvery:'',t.repeat==='monthly'?t.repeatMonthDay:'',t.repeatGenerated===true?'yes':'',t.createdAt,t.completedAt])]);
+  }
+  function focusCSV(state) {
+    return csv([['Session ID','Date','Minutes'],...state.sessions.map(s=>[s.id,s.day,s.minutes])]);
+  }
+  const api = {tasksCSV,focusCSV,VERSION,uid,dayKey,validDay,empty,normalize,addTask,updateTask,nextTaskDay,saveHabit,habitTarget,habitWeek,toggleHabit,streak,filterTasks,filterNotes,focusWeek,startTimer,remaining,pauseTimer,resumeTimer,finishTimer,demo};
   root.Daylight = api; if(typeof module!=='undefined'&&module.exports) module.exports=api;
 })(typeof globalThis!=='undefined'?globalThis:this);
