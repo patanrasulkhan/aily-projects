@@ -730,3 +730,77 @@ test('corrupt storage blocks misleading empty CSV and keeps raw recovery backup 
   const b=csvBrowser('{broken');b.click('export-tasks-csv');b.click('export-focus-csv');eq(b.blobs,[]);eq(b.writes,[]);assert(b.node('#toast').textContent.includes('Export workspace backup'));
 });
 log('DAYLIGHT_CSV_TESTS_PASSED='+passed);
+
+// Model detached controls and native dialog return focus at the browser boundary.
+function focusContinuityBrowser(initial,view){
+  const events={},windowEvents={},nodes={};let controls=[],stored=JSON.stringify(initial),fail=false,tick;
+  const doc={activeElement:null,querySelector(s){if(s==='#note-body')return null;return nodes[s]||(nodes[s]=make({id:s.slice(1)}));},
+    querySelectorAll(s){return s.startsWith('#main button')?controls:[];},addEventListener(k,fn){events[k]=fn;}};
+  function make(attrs){return {attrs,dataset:Object.fromEntries(Object.keys(attrs).filter(k=>k.startsWith('data-')).map(k=>[k.slice(5).replace(/-([a-z])/g,(_,c)=>c.toUpperCase()),attrs[k]])),isConnected:true,open:false,value:'',textContent:'',innerHTML:'',
+    classList:{add(){},remove(){},toggle(){}},hasAttribute(k){return k in attrs;},getAttribute(k){return k in attrs?attrs[k]:null;},focus(){doc.activeElement=this;},
+    setSelectionRange(a,b){this.selectionStart=a;this.selectionEnd=b;},addEventListener(k,fn){this['on'+k]=fn;},
+    showModal(){this.open=true;doc.querySelector('#editor-fields').focus();},close(){if(!this.open)return;this.open=false;if(this.onclose)this.onclose();}};}
+  const main=doc.querySelector('#main');main.contains=el=>controls.includes(el);
+  Object.defineProperty(main,'innerHTML',{get(){return this.html||'';},set(html){this.html=html;controls.forEach(el=>{el.isConnected=false;});controls=[];
+    const tags=html.match(/<(?:button|a|input|select|textarea)\b[^>]*>/g)||[];
+    tags.forEach(tag=>{const attrs={};tag.replace(/([\w-]+)="([^"]*)"/g,(_,k,v)=>{attrs[k]=v.replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&amp;/g,'&');return '';});const el=make(attrs);el.disabled=/\sdisabled(?:\s|>)/.test(tag);controls.push(el);});
+    if(doc.activeElement&&!doc.activeElement.isConnected)doc.activeElement=null;
+  }});
+  const loc={hash:'#'+(view||'tasks')};
+  new Function('window','document','localStorage','location','setInterval','setTimeout','clearTimeout','FormData','confirm',themeFile('web/app.js'))(
+    {Daylight:C,addEventListener(k,fn){windowEvents[k]=fn;}},doc,{getItem(){return stored;},setItem(k,v){if(fail)throw Error('Full');stored=v;}},loc,fn=>{tick=fn;},()=>{},()=>{},function(form){this[Symbol.iterator]=()=>Object.entries(form.data||{})[Symbol.iterator]();this.get=k=>(form.data||{})[k];},()=>true);
+  return {doc,main,controls:()=>controls,raw:()=>stored,fail(v){fail=v;},tick(){tick();},
+    find(action,id){return controls.find(el=>el.dataset.action===action&&(id===undefined||el.dataset.id===id));},
+    click(el){el.focus();events.click({target:{closest(s){return s==='[data-action]'?el:null;}}});},
+    submit(data){events.submit({target:{id:'editor-form',data},preventDefault(){}});},
+    close(){doc.querySelector('#editor').close();},external(s){stored=JSON.stringify(s);windowEvents.storage({key:'daylight.workspace.v1',newValue:stored});}};
+}
+test('timer start pause resume reset and duration changes retain the replacement control',()=>{
+  const b=focusContinuityBrowser(C.empty(),'focus');
+  for(const action of ['timer-start','timer-start','timer-start','timer-reset','timer-mode']){
+    const old=b.find(action);b.click(old);assert(b.doc.activeElement!==old);eq(b.doc.activeElement.dataset.action,action);assert(b.doc.activeElement.isConnected);
+    if(action==='timer-mode')eq(b.doc.activeElement.dataset.minutes,old.dataset.minutes);
+  }
+  b.fail(true);const old=b.find('timer-start'),raw=b.raw();b.click(old);eq(b.doc.activeElement,old);eq(b.raw(),raw);
+});
+test('editor save restores task opener by identity and deletion falls back to workspace',()=>{
+  const s=C.addTask(C.empty(),{title:'Keyboard task'},fixed),id=s.tasks[0].id,b=focusContinuityBrowser(s);
+  const opener=b.find('edit-task',id);b.click(opener);b.submit({title:'Renamed',status:'todo'});
+  assert(!b.doc.querySelector('#editor').open);assert(b.doc.activeElement!==opener);eq(b.doc.activeElement.dataset.id,id);eq(b.doc.activeElement.dataset.action,'edit-task');
+  b.click(b.find('edit-task',id));
+  // The delete button is inside the modal, outside the replaced workspace.
+  const remove={dataset:{action:'delete-task',id},focus(){b.doc.activeElement=this;}};b.click(remove);eq(b.doc.activeElement,b.main);eq(JSON.parse(b.raw()).tasks.length,0);
+});
+test('editor cancellation preserves opener and failed saves keep modal focus and stored data',()=>{
+  const s=C.addTask(C.empty(),{title:'Keep'},fixed),b=focusContinuityBrowser(s),opener=b.find('edit-task');
+  b.click(opener);b.close();eq(b.doc.activeElement,opener);
+  b.click(opener);const modalFocus=b.doc.activeElement,raw=b.raw();b.fail(true);b.submit({title:'Changed'});
+  assert(b.doc.querySelector('#editor').open);eq(b.doc.activeElement,modalFocus);eq(b.raw(),raw);b.close();eq(b.doc.activeElement,opener);
+});
+test('background updates preserve selection without stealing focus outside the workspace or modal',()=>{
+  const b=focusContinuityBrowser(C.empty()),input=b.controls().find(el=>el.attrs.id==='task-search');input.focus();input.setSelectionRange(2,4);
+  b.external(C.empty());eq(b.doc.activeElement.attrs.id,'task-search');eq(b.doc.activeElement.selectionStart,2);eq(b.doc.activeElement.selectionEnd,4);
+  const outside=b.doc.querySelector('#global-search');outside.focus();b.external(C.empty());eq(b.doc.activeElement,outside);
+  b.click(b.find('task'));const modal=b.doc.activeElement;b.external(C.empty());eq(b.doc.activeElement,modal);b.close();eq(b.doc.activeElement.dataset.action,'task');
+});
+test('imported punctuation in record IDs restores focus through literal attribute matching',()=>{
+  const s=C.addTask(C.empty(),{title:'Literal ID'},fixed);s.tasks[0].id='quote" bracket] # \' id';
+  const b=focusContinuityBrowser(s);b.click(b.find('edit-task',s.tasks[0].id));b.submit({title:'Still here'});eq(b.doc.activeElement.dataset.id,s.tasks[0].id);
+});
+log('DAYLIGHT_FOCUS_CONTINUITY_TESTS_PASSED='+passed);
+test('habit editor and new task saves return to their matching workspace buttons',()=>{
+  for(const kind of ['task','habit']){
+    const b=focusContinuityBrowser(C.empty(),kind==='habit'?'habits':'tasks');b.click(b.find(kind));b.submit({title:'A small step',weeklyTarget:'3'});
+    eq(b.doc.activeElement.dataset.action,kind);assert(b.doc.activeElement.isConnected);eq(JSON.parse(b.raw())[kind==='habit'?'habits':'tasks'].length,1);
+  }
+  assert(themeFile('web/styles.css').includes('#main:focus-visible{outline:2px solid var(--purple)'));
+});
+test('automatic timer completion keeps current timer focus and leaves header focus alone',()=>{
+  for(const outside of [false,true]){
+    const s=C.startTimer(C.empty(),1,Date.now()-120000),b=focusContinuityBrowser(s,'focus');
+    const target=outside?b.doc.querySelector('#global-search'):b.find('timer-start');target.focus();b.tick();
+    eq(JSON.parse(b.raw()).sessions.length,1);
+    if(outside)eq(b.doc.activeElement,target);else {eq(b.doc.activeElement.dataset.action,'timer-start');assert(b.doc.activeElement!==target);}
+  }
+});
+log('DAYLIGHT_ACCESSIBILITY_TESTS_PASSED='+passed);

@@ -27,13 +27,37 @@ in the user's browser and existing backups must remain compatible.
 - [x] Add an onboarding tour with explicit demo-data controls (2026-11-10)
 - [x] Add optional CSV export for tasks and focus history (2026-11-11)
 - [ ] Improve accessibility based on a keyboard-only walkthrough
+  - [x] Preserve keyboard focus across workspace renders and editor save/delete; visible workspace fallback (2026-11-12)
+  - [ ] Complete a native browser keyboard and screen-reader walkthrough
 
 Each daily run should finish one meaningful item or fix an observed bug,
 add regression coverage, and describe the change in CHANGELOG.md. Avoid busywork,
 new dependencies, remote APIs, accounts, payments, or storing data in the repository.
 Keep the current UI polished and responsive. Do not delete or weaken existing tests.
 
-## Latest validation — 2026-11-11
+## Latest validation — 2026-11-12
+
+Fixed keyboard focus loss when workspace renders replace controls. Timer actions,
+automatic completion, and other workspace updates restore the matching enabled
+control using literal stable attribute values; text controls retain selection.
+Background updates leave header controls and open dialogs focused. Editor close
+(including Escape/cancel) returns to the connected opener or its replacement after
+saving. If deletion or filtering removes the opener, focus moves to the workspace
+landmark with a theme-aware visible outline. Task/habit creation returns to its
+creation button. Storage failures keep the editor and its focus available.
+
+Validation: all 105 tests passed in JavaScriptCore in America/New_York and
+Pacific/Auckland. All 98 previous tests remain unchanged; seven appended tests
+exercise detached/replaced controls, task/habit saves, cancellation, deletion,
+failed writes, timer start/pause/resume/reset/mode/completion, selection retention,
+background updates, and punctuation in imported IDs. No storage schema, backup,
+local URL, dependency, or browser-local policy changes. Code-path keyboard review
+and a dependency-free browser harness were used; native browser Tab/Escape,
+layout, and screen-reader behavior still need a walkthrough, so the broader
+accessibility item remains open.
+
+## Previous validation — 2026-11-11
+
 
 Added separate Export all tasks (CSV) and Export all focus history (CSV) controls
 in Workspace & backups. Reports include every stored record regardless of task

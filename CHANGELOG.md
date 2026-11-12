@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-11-12 — Keep keyboard focus through workspace updates
+
+Workspace updates now return focus to the replacement control instead of leaving
+keyboard users at the document body. Timer start, pause, resume, reset, duration
+changes, and automatic completion keep a useful keyboard position. Text controls
+retain their selection; background updates leave header controls and dialogs alone.
+Task and habit editors return focus to their opener after save or cancellation,
+including a replacement opener after rendering. When a task is deleted or its
+control disappears from the current filters, the workspace receives focus with
+a visible theme-aware outline. Failed saves keep the editor focused and available.
+Imported record IDs are compared literally rather than interpolated into selectors.
+
+Validation: all 105 tests passed in JavaScriptCore under America/New_York and
+Pacific/Auckland. All 98 existing tests remain unchanged; seven appended browser
+boundary regressions model detached controls and cover editor save/cancel/delete,
+creation, failed writes, timer operations/completion, selection, background updates,
+and imported ID punctuation. Native browser keyboard and screen-reader inspection
+remains outstanding. Version 1 persistence, backups, stored data, relative assets,
+responsive design, and the browser-local policy remain unchanged. No dependencies
+or network calls were added.
+
 ## 2026-11-11 — Task and focus CSV exports
 
 Download all tasks or all completed focus history as separate CSV files from
