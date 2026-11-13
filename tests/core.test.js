@@ -804,3 +804,57 @@ test('automatic timer completion keeps current timer focus and leaves header foc
   }
 });
 log('DAYLIGHT_ACCESSIBILITY_TESTS_PASSED='+passed);
+
+// Timer semantics expose duration and state without announcing every second.
+test('timer duration choices have explicit names and mutually exclusive pressed states',()=>{
+  const b=focusContinuityBrowser(C.empty(),'focus');
+  const modes=()=>b.controls().filter(el=>el.dataset.action==='timer-mode');
+  eq(modes().map(el=>el.attrs['aria-label']),['Focus, 25 minutes','Deep work, 50 minutes','Break, 5 minutes']);
+  eq(modes().map(el=>el.attrs['aria-pressed']),['true','false','false']);
+  b.click(modes()[1]);
+  eq(modes().map(el=>el.attrs['aria-pressed']),['false','true','false']);
+  assert(b.main.innerHTML.includes('role="group" aria-label="Session duration"'));
+  assert(b.main.innerHTML.includes('role="timer" aria-live="off" aria-label="Time remaining"'));
+  eq(b.doc.querySelector('#timer-status').textContent,'Deep work · 50 minutes · Ready');
+});
+test('timer announces start pause resume and reset without storage or per-tick announcements',()=>{
+  const b=focusContinuityBrowser(C.empty(),'focus'),status=b.doc.querySelector('#timer-status');
+  let message=status.textContent,announcements=[];
+  Object.defineProperty(status,'textContent',{get(){return message;},set(value){message=value;announcements.push(value);}});
+  const before=b.raw();b.tick();eq(b.raw(),before);eq(announcements,[]);
+  b.click(b.find('timer-start'));eq(message,'Focus · 25 minutes · Running');
+  b.tick();eq(announcements.length,1);
+  b.click(b.find('timer-start'));eq(message,'Focus · 25 minutes · Paused');
+  b.click(b.find('timer-start'));eq(message,'Focus · 25 minutes · Running');
+  b.click(b.find('timer-reset'));eq(message,'Focus · 25 minutes · Ready');
+  eq(announcements.length,4);
+});
+test('restored timers expose saved duration mode and paused state and failed actions stay truthful',()=>{
+  let s=C.startTimer(C.empty(),5,Date.now(),'Break');s=C.pauseTimer(s);
+  const b=focusContinuityBrowser(s,'focus');
+  eq(b.doc.querySelector('#timer-status').textContent,'Break · 5 minutes · Paused');
+  assert(b.main.innerHTML.includes('Break · 5 minutes · Paused'));
+  eq(b.controls().filter(el=>el.attrs['aria-pressed']==='true').map(el=>el.dataset.label),['Break']);
+  b.fail(true);const before=b.raw();b.click(b.find('timer-start'));
+  eq(b.raw(),before);eq(b.doc.querySelector('#timer-status').textContent,'Break · 5 minutes · Paused');
+});
+test('timer status is a persistent atomic polite region and completion returns it to ready',()=>{
+  const html=themeFile('web/index.html');
+  assert(html.includes('id="timer-status" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"'));
+  assert(html.indexOf('id="timer-status"')>html.indexOf('</main>'));
+  const b=focusContinuityBrowser(C.startTimer(C.empty(),1,Date.now()-120000),'focus');
+  b.tick();eq(JSON.parse(b.raw()).sessions.length,1);
+  eq(b.doc.querySelector('#timer-status').textContent,'Focus · 25 minutes · Ready');
+  assert(b.doc.querySelector('#toast').textContent.includes('Session complete'));
+});
+log('DAYLIGHT_TIMER_ACCESSIBILITY_TESTS_PASSED='+passed);
+test('failed duration changes preserve the selected mode after later renders and cross-tab updates announce state',()=>{
+  const b=focusContinuityBrowser(C.empty(),'focus');b.fail(true);
+  const deep=b.controls().find(el=>el.dataset.label==='Deep work');b.click(deep);
+  eq(b.doc.querySelector('#timer-status').textContent,'Focus · 25 minutes · Ready');
+  b.external(C.empty());eq(b.doc.querySelector('#timer-status').textContent,'Focus · 25 minutes · Ready');
+  eq(b.controls().filter(el=>el.attrs['aria-pressed']==='true').map(el=>el.dataset.label),['Focus']);
+  b.external(C.startTimer(C.empty(),50,Date.now(),'Deep work'));
+  eq(b.doc.querySelector('#timer-status').textContent,'Deep work · 50 minutes · Running');
+});
+log('DAYLIGHT_TIMER_STATUS_TESTS_PASSED='+passed);

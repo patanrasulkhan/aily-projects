@@ -1,5 +1,25 @@
 # Changelog
 
+## 2026-11-13 — Accessible focus timer selection and status
+
+Focus duration buttons now announce their minute lengths and selected state in
+a named group. The countdown is labeled Time remaining with timer semantics;
+it does not announce every second. A visible summary identifies the mode,
+duration, and Ready/Running/Paused state. A persistent atomic polite status
+region reports changes without repeated announcements on unrelated renders or
+ticks. Completion retains its existing feedback. Failed duration saves now keep
+the previous in-memory mode, preventing later renders from showing an unsaved
+choice.
+
+Validation: all 110 tests passed in JavaScriptCore in America/New_York and
+Pacific/Auckland. All 105 existing tests are unchanged; five appended regressions
+cover accessible selection, timer actions, quiet ticks, restored/completed timers,
+failed saves and subsequent renders, and cross-tab state. Validation uses the
+existing dependency-free browser harness; native keyboard and screen-reader
+inspection remains outstanding. Storage version 1, backups, stored records,
+relative URLs, browser-local policy, responsive styling, and themes are preserved.
+No dependencies or network calls were added.
+
 ## 2026-11-12 — Keep keyboard focus through workspace updates
 
 Workspace updates now return focus to the replacement control instead of leaving

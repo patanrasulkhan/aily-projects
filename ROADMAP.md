@@ -28,6 +28,7 @@ in the user's browser and existing backups must remain compatible.
 - [x] Add optional CSV export for tasks and focus history (2026-11-11)
 - [ ] Improve accessibility based on a keyboard-only walkthrough
   - [x] Preserve keyboard focus across workspace renders and editor save/delete; visible workspace fallback (2026-11-12)
+  - [x] Expose timer duration selection and state to assistive technology without per-second announcements; preserve mode on failed saves (2026-11-13)
   - [ ] Complete a native browser keyboard and screen-reader walkthrough
 
 Each daily run should finish one meaningful item or fix an observed bug,
@@ -35,7 +36,27 @@ add regression coverage, and describe the change in CHANGELOG.md. Avoid busywork
 new dependencies, remote APIs, accounts, payments, or storing data in the repository.
 Keep the current UI polished and responsive. Do not delete or weaken existing tests.
 
-## Latest validation — 2026-11-12
+## Latest validation — 2026-11-13
+
+Improved the Focus timer accessibility: duration choices form a named group,
+include their minute lengths, and expose selection with aria-pressed. The
+countdown has a time-remaining name and timer semantics with live updates off.
+A visible mode/duration/state summary and a persistent, atomic polite status
+region report Ready, Running, and Paused. The status region changes only when
+that summary changes, keeping second-by-second countdown updates quiet. Existing
+completion feedback remains available. Failed duration saves now retain the
+previous in-memory choice as well as the stored workspace.
+
+Validation: all 110 tests passed in JavaScriptCore under America/New_York and
+Pacific/Auckland. All 105 previous tests remain unchanged; five appended tests
+cover duration names and pressed states, start/pause/resume/reset, quiet ticks,
+restored timers, completion, failed writes and later renders, and cross-tab state.
+Checks use the dependency-free browser boundary; native browser and screen-reader
+behavior has not been inspected, so the broader walkthrough remains open.
+Version 1 persistence, backups, data policy, relative assets, and responsive theme
+styling are unchanged. No dependencies or network calls were added.
+
+## Previous validation — 2026-11-12
 
 Fixed keyboard focus loss when workspace renders replace controls. Timer actions,
 automatic completion, and other workspace updates restore the matching enabled
