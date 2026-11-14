@@ -29,6 +29,7 @@ in the user's browser and existing backups must remain compatible.
 - [ ] Improve accessibility based on a keyboard-only walkthrough
   - [x] Preserve keyboard focus across workspace renders and editor save/delete; visible workspace fallback (2026-11-12)
   - [x] Expose timer duration selection and state to assistive technology without per-second announcements; preserve mode on failed saves (2026-11-13)
+  - [x] Retain unsaved note drafts when navigation saves fail; add explicit save retry (2026-11-14)
   - [ ] Complete a native browser keyboard and screen-reader walkthrough
 
 Each daily run should finish one meaningful item or fix an observed bug,
@@ -36,7 +37,27 @@ add regression coverage, and describe the change in CHANGELOG.md. Avoid busywork
 new dependencies, remote APIs, accounts, payments, or storing data in the repository.
 Keep the current UI polished and responsive. Do not delete or weaken existing tests.
 
-## Latest validation — 2026-11-13
+## Latest validation — 2026-11-14
+
+Fixed draft loss observed while reviewing keyboard navigation: failed note saves
+now stop workspace shortcuts, sidebar navigation, and global-search routing.
+Hash navigation (including Back/Forward) returns to the rendered view without
+replacing the editor; the compensating hash event also leaves the draft intact.
+Pin and delete stop after an unsuccessful draft save rather than attempting a
+second write. A visible Save now button lets users retry without editing again;
+successful saves retain title, body, folder, identity, and version 1 backups.
+
+Validation: all 115 tests passed in JavaScriptCore under America/New_York and
+Pacific/Auckland. All 110 previous tests remain unchanged; five appended tests
+cover failed navigation, hash rollback and its follow-up event, pin/delete guards,
+successful navigation and pinning, and explicit save failure/retry with no-op
+writes avoided. Event checks use the dependency-free browser boundary; native
+browser history, keyboard, screen-reader, and layout inspection remain outstanding.
+The broader walkthrough stays open. Existing storage keys, persistence version,
+backups, browser-local policy, relative assets, themes, and responsive CSS remain
+unchanged. No dependencies or network calls were added.
+
+## Previous validation — 2026-11-13
 
 Improved the Focus timer accessibility: duration choices form a named group,
 include their minute lengths, and expose selection with aria-pressed. The

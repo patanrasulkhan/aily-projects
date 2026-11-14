@@ -858,3 +858,65 @@ test('failed duration changes preserve the selected mode after later renders and
   eq(b.doc.querySelector('#timer-status').textContent,'Deep work · 50 minutes · Running');
 });
 log('DAYLIGHT_TIMER_STATUS_TESTS_PASSED='+passed);
+
+// Failed note autosaves must not let navigation replace the only copy of a draft.
+function draftNavigationBrowser(){
+  const events={},windowEvents={},nodes={};let hash='#notes';
+  const loc={get hash(){return hash;},set hash(value){hash=value.startsWith('#')?value:'#'+value;}};
+  let stored=noteFixture(),html='',fail=false,writes=0,confirmations=0;
+  const decode=s=>s.replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
+  const node=s=>nodes[s]||(nodes[s]={value:'',textContent:'',innerHTML:'',open:false,classList:{add(){},remove(){},toggle(){}},focus(){},showModal(){this.open=true;},close(){this.open=false;}});
+  Object.defineProperty(node('#main'),'innerHTML',{get(){return html;},set(value){html=value;for(const id of ['note-title','note-body','note-folder']){
+    const input=new RegExp('<input[^>]*id="'+id+'"[^>]*value="([^"]*)"').exec(html),area=new RegExp('<textarea[^>]*id="'+id+'"[^>]*>([\\s\\S]*?)</textarea>').exec(html);
+    node('#'+id).value=decode(input?input[1]:area?area[1]:'');
+  }}});
+  const doc={querySelector(s){if(s==='dialog[open]')return null;if(['#note-title','#note-body','#note-folder'].includes(s)&&!html.includes('id="'+s.slice(1)+'"'))return null;return node(s);},querySelectorAll(){return [];},addEventListener(k,fn){events[k]=fn;}};
+  new Function('window','document','localStorage','location','setInterval','setTimeout','clearTimeout','confirm',themeFile('web/app.js'))(
+    {Daylight:C,addEventListener(k,fn){windowEvents[k]=fn;}},doc,{getItem(){return JSON.stringify(stored);},setItem(k,v){writes++;if(fail)throw Error('Full');stored=JSON.parse(v);}},loc,()=>{},()=>{},()=>{},()=>{confirmations++;return true;});
+  return {node,loc,state:()=>stored,writes:()=>writes,confirmations:()=>confirmations,fail(v){fail=v;},
+    draft(){node('#note-title').value='Unsaved title';node('#note-body').value='Unsaved text ✦';node('#note-folder').value='Draft folder';},
+    key(code){events.keydown({code,altKey:true,shiftKey:true,target:{closest(){return null;}},preventDefault(){}});},
+    inputSearch(){events.input({target:{id:'global-search',value:'garden'}});},
+    click(action){events.click({target:{closest(s){return s==='[data-action]'?{dataset:{action,id:'b'}}:null;}}});},
+    link(){let prevented=false;events.click({target:{closest(s){return s==='[data-view]'?{}:null;}},preventDefault(){prevented=true;}});return prevented;},
+    hash(view){loc.hash='#'+view;windowEvents.hashchange();},hashEvent(){windowEvents.hashchange();}};
+}
+test('failed note saves block navigation shortcuts search and sidebar links without replacing drafts',()=>{
+  for(const action of ['Digit2','KeyT','KeyH','KeyN','search','link']){
+    const b=draftNavigationBrowser(),before=JSON.stringify(b.state());b.draft();b.fail(true);
+    if(action==='search')b.inputSearch();else if(action==='link')assert(b.link());else b.key(action);
+    eq(b.loc.hash,'#notes');eq(b.node('#note-title').value,'Unsaved title');eq(b.node('#note-body').value,'Unsaved text ✦');eq(b.node('#note-folder').value,'Draft folder');
+    eq(JSON.stringify(b.state()),before);assert(!b.node('#editor').open);assert(b.node('#note-save').textContent.includes('Could not save'));
+  }
+});
+test('failed saves restore hash navigation and its follow-up event leaves the draft available for retry',()=>{
+  const b=draftNavigationBrowser();b.draft();b.fail(true);b.hash('tasks');eq(b.loc.hash,'#notes');
+  b.hashEvent();eq(b.node('#note-body').value,'Unsaved text ✦');eq(b.writes(),1);
+  b.fail(false);b.hash('tasks');eq(b.state().notes.find(n=>n.id==='b').body,'Unsaved text ✦');
+  eq(b.state().notes.find(n=>n.id==='b').title,'Unsaved title');eq(b.state().notes.find(n=>n.id==='b').folder,'Draft folder');
+  assert(b.node('#main').innerHTML.includes('Room for what matters.'));eq(C.normalize(b.state()),b.state());
+});
+test('failed autosaves block note pin and delete before a second write or confirmation',()=>{
+  for(const action of ['pin-note','delete-note']){
+    const b=draftNavigationBrowser(),before=JSON.stringify(b.state());b.draft();b.fail(true);b.click(action);
+    eq(b.writes(),1);eq(b.confirmations(),0);eq(JSON.stringify(b.state()),before);eq(b.node('#note-body').value,'Unsaved text ✦');
+  }
+});
+test('successful note navigation and pinning persist pending edits before replacing controls',()=>{
+  for(const action of ['Digit2','search','pin-note']){
+    const b=draftNavigationBrowser();b.draft();
+    if(action==='search')b.inputSearch();else if(action==='pin-note')b.click(action);else b.key(action);
+    const n=b.state().notes.find(n=>n.id==='b');eq(n.title,'Unsaved title');eq(n.body,'Unsaved text ✦');eq(n.folder,'Draft folder');
+    if(action==='pin-note')assert(!n.pinned);else eq(b.loc.hash,action==='search'?'#search':'#tasks');
+  }
+});
+log('DAYLIGHT_DRAFT_NAVIGATION_TESTS_PASSED='+passed);
+test('visible Save now retries a failed note draft without replacing the editor or losing fields',()=>{
+  const b=noteBrowser();assert(b.html().includes('data-action="save-note">Save now</button>'));
+  b.fail(true);b.input('note-title','Retry title');b.input('note-body','Keep every word');b.input('note-folder','Retry folder');b.tick();
+  const before=JSON.stringify(b.state());b.click('save-note');eq(JSON.stringify(b.state()),before);eq(b.node('#note-body').value,'Keep every word');
+  b.fail(false);b.click('save-note');const n=b.state().notes.find(n=>n.id==='b');eq(n.title,'Retry title');eq(n.body,'Keep every word');eq(n.folder,'Retry folder');
+  eq(b.node('#note-save').textContent,'Saved on this device');eq(b.node('#note-body').value,'Keep every word');eq(C.normalize(b.state()),b.state());
+  const writes=b.saves();b.click('save-note');eq(b.saves(),writes);
+});
+log('DAYLIGHT_NOTE_RETRY_TESTS_PASSED='+passed);

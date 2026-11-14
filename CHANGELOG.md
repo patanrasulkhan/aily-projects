@@ -1,5 +1,26 @@
 # Changelog
 
+## 2026-11-14 — Keep failed note drafts through navigation and retry
+
+Fixed an observed draft-loss path: workspace keyboard shortcuts and global
+search no longer replace the note editor after an autosave failure. Sidebar
+navigation also stops; hash navigation (including Back/Forward) returns to the
+current view without rerendering the draft, including on the resulting hash
+event. Title, body, and folder stay available for retry. Pin and delete now stop
+if the pending draft cannot be saved, avoiding a follow-up write or confirmation.
+A visible Save now control retries the save without requiring another edit or
+replacing the focused editor. Successful navigation still saves pending edits.
+
+Validation: all 115 tests passed in JavaScriptCore under America/New_York and
+Pacific/Auckland. All 110 existing tests remain unchanged; five appended tests
+exercise failed keyboard/sidebar/search navigation, hash rollback and its return
+event, pin/delete failure guards, successful navigation/pinning, and explicit
+save retry with all fields and backup compatibility. Tests use the existing
+dependency-free browser harness; native browser history, keyboard, screen-reader,
+and layout inspection remain outstanding. Version 1 persistence, existing stored
+data and backups, local URLs, browser-local data policy, responsive CSS, and themes
+are preserved. No dependencies or network calls were added.
+
 ## 2026-11-13 — Accessible focus timer selection and status
 
 Focus duration buttons now announce their minute lengths and selected state in
