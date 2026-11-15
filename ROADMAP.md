@@ -30,6 +30,7 @@ in the user's browser and existing backups must remain compatible.
   - [x] Preserve keyboard focus across workspace renders and editor save/delete; visible workspace fallback (2026-11-12)
   - [x] Expose timer duration selection and state to assistive technology without per-second announcements; preserve mode on failed saves (2026-11-13)
   - [x] Retain unsaved note drafts when navigation saves fail; add explicit save retry (2026-11-14)
+  - [x] Make Skip to workspace focus the current view without hash routing or draft replacement (2026-11-15)
   - [ ] Complete a native browser keyboard and screen-reader walkthrough
 
 Each daily run should finish one meaningful item or fix an observed bug,
@@ -37,7 +38,26 @@ add regression coverage, and describe the change in CHANGELOG.md. Avoid busywork
 new dependencies, remote APIs, accounts, payments, or storing data in the repository.
 Keep the current UI polished and responsive. Do not delete or weaken existing tests.
 
-## Latest validation — 2026-11-14
+## Latest validation — 2026-11-15
+
+Fixed an observed keyboard navigation bug: Skip to workspace previously changed
+its hash to #main, which the router interpreted as Overview. The link now cancels
+that navigation and focuses the existing main landmark, retaining the current
+view, search, filters, and unsaved note editor. It does not render or write data;
+the native #main target remains as a fallback. Existing visible focus styles apply.
+
+Validation: all 118 tests passed in JavaScriptCore under America/New_York and
+Pacific/Auckland. All 115 previous tests remain unchanged; three appended tests
+cover focus and canceled anchor navigation in all six routes, unchanged content
+and search, zero writes/renders, unsaved note fields, and landmark/link markup
+and focus styles. Checks use the dependency-free browser boundary; native browser
+Tab/Enter, screen-reader, and layout inspection remain outstanding, so the broader
+walkthrough stays open. Version 1 persistence, backups, browser-local policy,
+relative URLs, responsive design, and themes are preserved. No dependencies or
+network calls were added.
+
+## Previous validation — 2026-11-14
+
 
 Fixed draft loss observed while reviewing keyboard navigation: failed note saves
 now stop workspace shortcuts, sidebar navigation, and global-search routing.

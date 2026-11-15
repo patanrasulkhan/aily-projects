@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-11-15 — Skip navigation without leaving the workspace
+
+Fixed Skip to workspace routing to Overview from other views. Activating the
+link now focuses the current workspace landmark without changing the hash,
+replacing controls, or attempting a save. Search, filters, and unsaved note
+fields stay intact. The link retains its native landmark target as a fallback
+and uses the existing visible keyboard focus styling.
+
+Validation: all 118 tests passed in JavaScriptCore under America/New_York and
+Pacific/Auckland. All 115 existing tests remain unchanged; three appended
+regressions cover all six routes, focus transfer and canceled default navigation,
+no renders or writes, retained search and note drafts, and accessible link/landmark
+markup with focus styles. Tests use the dependency-free browser boundary;
+native keyboard, screen-reader, and layout inspection remain outstanding.
+Version 1 persistence, stored data, backups, browser-local policy, relative
+assets, responsive design, and themes are unchanged. No dependencies or network
+calls were added.
+
 ## 2026-11-14 — Keep failed note drafts through navigation and retry
 
 Fixed an observed draft-loss path: workspace keyboard shortcuts and global

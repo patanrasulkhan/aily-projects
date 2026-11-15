@@ -920,3 +920,42 @@ test('visible Save now retries a failed note draft without replacing the editor 
   const writes=b.saves();b.click('save-note');eq(b.saves(),writes);
 });
 log('DAYLIGHT_NOTE_RETRY_TESTS_PASSED='+passed);
+
+// A skip link is an in-page focus action, not a workspace route.
+function skipWorkspaceBrowser(view){
+  const events={},nodes={},loc={hash:'#'+view};let writes=0,renders=0;
+  const node=s=>nodes[s]||(nodes[s]={value:'',textContent:'',innerHTML:'',open:false,
+    focus(){doc.activeElement=this;},classList:{add(){},remove(){},toggle(){}}});
+  let html='';Object.defineProperty(node('#main'),'innerHTML',{get(){return html;},set(value){html=value;renders++;}});
+  const doc={activeElement:null,querySelector(s){if(s==='dialog[open]')return null;if(s==='#note-body'&&!html.includes('id="note-body"'))return null;return node(s);},querySelectorAll(){return [];},addEventListener(k,fn){events[k]=fn;}};
+  new Function('window','document','localStorage','location','setInterval','setTimeout','clearTimeout',themeFile('web/app.js'))(
+    {Daylight:C,addEventListener(){}},doc,{getItem(){return JSON.stringify(noteFixture());},setItem(){writes++;}},loc,()=>{},()=>{},()=>{});
+  return {doc,node,loc,writes:()=>writes,renders:()=>renders,activate(){let prevented=false;
+    const link={dataset:{action:'skip-workspace'}};
+    events.click({target:{closest(s){return s==='[data-action]'?link:null;}},preventDefault(){prevented=true;}});
+    // Model the anchor's default navigation when the click is not canceled.
+    if(!prevented)loc.hash='#main';return prevented;
+  }};
+}
+test('skip link keeps every current workspace route and moves focus without rendering or saving',()=>{
+  for(const view of ['overview','tasks','habits','notes','focus','search']){
+    const b=skipWorkspaceBrowser(view),html=b.node('#main').innerHTML,renders=b.renders();
+    b.node('#global-search').value='Keep this query';b.node('skip-link').focus();
+    assert(b.activate());eq(b.doc.activeElement,b.node('#main'));eq(b.loc.hash,'#'+view);
+    eq(b.renders(),renders);eq(b.node('#main').innerHTML,html);eq(b.writes(),0);eq(b.node('#global-search').value,'Keep this query');
+  }
+});
+test('skipping navigation preserves unsaved note fields without attempting an autosave',()=>{
+  const b=skipWorkspaceBrowser('notes');
+  b.node('#note-title').value='A draft title';b.node('#note-body').value='Every unsaved word ✦';b.node('#note-folder').value='Drafts';
+  b.activate();eq(b.doc.activeElement,b.node('#main'));eq(b.writes(),0);eq(b.loc.hash,'#notes');
+  eq(b.node('#note-title').value,'A draft title');eq(b.node('#note-body').value,'Every unsaved word ✦');eq(b.node('#note-folder').value,'Drafts');
+});
+test('skip link retains its native landmark target and visible keyboard styles',()=>{
+  const html=themeFile('web/index.html'),css=themeFile('web/styles.css');
+  assert(html.includes('<a class="skip" href="#main" data-action="skip-workspace">Skip to workspace</a>'));
+  assert(html.includes('<main id="main" tabindex="-1">'));
+  assert(html.indexOf('class="skip"')<html.indexOf('<aside'));
+  assert(css.includes('.skip:focus'));assert(css.includes('#main:focus-visible'));
+});
+log('DAYLIGHT_SKIP_WORKSPACE_TESTS_PASSED='+passed);
