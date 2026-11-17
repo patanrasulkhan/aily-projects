@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-11-17 — Keep note search consistent after a failed save
+
+When a pending note draft cannot be saved, attempting to change note search
+now restores the applied query in the search field. The displayed query and
+results remain consistent, the draft stays open, and searching again after
+storage recovers saves the draft and applies the new query.
+
+Validation: all 123 tests passed in JavaScriptCore in America/New_York and
+Pacific/Auckland. One appended regression covers a nonempty existing search,
+failed save, intact draft and results, and successful retry. Native keyboard
+and screen-reader inspection remains outstanding. Stored data, version 1
+backups, and the browser-local policy are unchanged.
+
 ## 2026-11-16 — Recover unsaved notes when storage fails
 
 JSON workspace backups now include the note draft on screen even if its save

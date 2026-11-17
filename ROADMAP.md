@@ -32,6 +32,7 @@ in the user's browser and existing backups must remain compatible.
   - [x] Retain unsaved note drafts when navigation saves fail; add explicit save retry (2026-11-14)
   - [x] Make Skip to workspace focus the current view without hash routing or draft replacement (2026-11-15)
   - [x] Include unsaved note drafts in recovery backups and request a leave-page warning after failed saves (2026-11-16)
+  - [x] Restore the applied note search after a failed draft save (2026-11-17)
   - [ ] Complete a native browser keyboard and screen-reader walkthrough
 
 Each daily run should finish one meaningful item or fix an observed bug,
@@ -39,7 +40,16 @@ add regression coverage, and describe the change in CHANGELOG.md. Avoid busywork
 new dependencies, remote APIs, accounts, payments, or storing data in the repository.
 Keep the current UI polished and responsive. Do not delete or weaken existing tests.
 
-## Latest validation — 2026-11-16
+## Latest validation — 2026-11-17
+
+Fixed note search after a failed draft save: the search field returns to the
+applied query, so its value matches the visible results. The draft remains open
+and a later search retries the save. All 123 tests passed in JavaScriptCore in
+America/New_York and Pacific/Auckland, including an appended regression for the
+failure and retry. Native keyboard and screen-reader inspection remains open.
+Persistence, backups, and browser-local data are unchanged.
+
+## Previous validation — 2026-11-16
 
 Fixed a recovery bug found while reviewing the note-save failure flow: JSON
 backup export now includes the current note title, body, and folder even when

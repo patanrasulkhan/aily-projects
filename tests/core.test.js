@@ -1009,3 +1009,15 @@ test('recovery exports unreadable storage verbatim and refuses a misleading back
   b.readFail(true);b.click('export');eq(b.blobs.length,1);eq(b.downloads.length,1);assert(b.node('#toast').textContent.includes('Could not read the original workspace'));eq(b.writes(),0);
 });
 log('DAYLIGHT_NOTE_RECOVERY_TESTS_PASSED='+passed);
+
+// A rejected search must continue to show the filter actually applied.
+test('failed note save restores the applied search and allows a later retry',()=>{
+  const b=noteBrowser();b.input('note-search','garden');assert(b.html().includes('2 of 3 notes'));
+  b.input('note-body','Unsaved garden draft');const before=JSON.stringify(b.state()),html=b.html();b.fail(true);
+  b.input('note-search','missing');eq(b.node('#note-search').value,'garden');eq(b.html(),html);
+  eq(b.node('#note-body').value,'Unsaved garden draft');eq(JSON.stringify(b.state()),before);
+  assert(b.node('#note-save').textContent.includes('Could not save'));
+  b.fail(false);b.input('note-search','missing');eq(b.node('#note-search').value,'missing');
+  assert(b.html().includes('No notes match'));eq(b.state().notes.find(n=>n.id==='b').body,'Unsaved garden draft');
+});
+log('DAYLIGHT_NOTE_SEARCH_RECOVERY_TESTS_PASSED='+passed);
