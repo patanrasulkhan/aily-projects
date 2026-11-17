@@ -31,6 +31,7 @@ in the user's browser and existing backups must remain compatible.
   - [x] Expose timer duration selection and state to assistive technology without per-second announcements; preserve mode on failed saves (2026-11-13)
   - [x] Retain unsaved note drafts when navigation saves fail; add explicit save retry (2026-11-14)
   - [x] Make Skip to workspace focus the current view without hash routing or draft replacement (2026-11-15)
+  - [x] Include unsaved note drafts in recovery backups and request a leave-page warning after failed saves (2026-11-16)
   - [ ] Complete a native browser keyboard and screen-reader walkthrough
 
 Each daily run should finish one meaningful item or fix an observed bug,
@@ -38,7 +39,33 @@ add regression coverage, and describe the change in CHANGELOG.md. Avoid busywork
 new dependencies, remote APIs, accounts, payments, or storing data in the repository.
 Keep the current UI polished and responsive. Do not delete or weaken existing tests.
 
-## Latest validation — 2026-11-15
+## Latest validation — 2026-11-16
+
+Fixed a recovery bug found while reviewing the note-save failure flow: JSON
+backup export now includes the current note title, body, and folder even when
+browser storage rejects the save. The backup uses a read-only draft snapshot;
+failed saves leave the stored workspace and open editor intact. Feedback explains
+that the draft is in the backup and browser storage still needs attention.
+Unreadable storage still exports verbatim; if reading that original fails, export
+stops with retry guidance instead of downloading a misleading empty workspace.
+Closing or reloading requests the native leave-page warning only when the final
+note save fails. Successful retries and unchanged notes do not request a warning.
+
+Validation: all 122 tests passed in JavaScriptCore under America/New_York and
+Pacific/Auckland. All 118 existing tests remain unchanged; four appended tests
+cover failed-save draft export, complete workspace retention, version 1 backup
+normalization, Unicode/multiline text, blank title/folder handling, save retry,
+no-op writes, local download metadata and URL cleanup, unload cancellation,
+verbatim corrupt recovery, and blocked recovery reads. Tests use the existing
+dependency-free browser boundary. Native downloads, leave-page prompts, keyboard,
+screen-reader, and layout inspection remain outstanding; browsers control whether
+a leave-page prompt is shown, so it is not a replacement for backups. The broader
+walkthrough remains open. Persistence version, stored records, browser-local
+policy, relative URLs, themes, and responsive CSS are preserved. No dependencies
+or network calls were added.
+
+## Previous validation — 2026-11-15
+
 
 Fixed an observed keyboard navigation bug: Skip to workspace previously changed
 its hash to #main, which the router interpreted as Overview. The link now cancels

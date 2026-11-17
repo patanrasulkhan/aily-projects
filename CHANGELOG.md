@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-11-16 — Recover unsaved notes when storage fails
+
+JSON workspace backups now include the note draft on screen even if its save
+fails. Title, body, folder, identity, and pinning remain in a restorable version 1
+backup alongside the rest of the workspace. Download feedback distinguishes this
+recovery from a successful browser save; exporting leaves the draft available
+for retry. Corrupt storage remains available verbatim, and blocked recovery reads
+stop export with guidance rather than creating a misleading empty backup.
+
+Closing or reloading requests the browser's leave-page warning if the final
+note save fails. Successful saves and unchanged notes allow normal departure.
+Browsers control prompt display; backups remain the reliable recovery option.
+
+Validation: all 122 tests passed in JavaScriptCore in America/New_York and
+Pacific/Auckland. All 118 existing tests are unchanged; four appended regressions
+exercise actual export and unload handlers, failed storage writes and retries,
+full draft/workspace retention, version 1 normalization, Unicode and multiline
+text, empty title/folder handling, no-op writes, local Blob download metadata,
+URL cleanup, corrupt raw export, and failed recovery reads. Native browser
+downloads/prompts, keyboard, screen-reader, and layout inspection remain
+outstanding. Existing persistence, backups, local data policy, relative assets,
+responsive styling, and themes are preserved. No dependencies or network calls.
+
 ## 2026-11-15 — Skip navigation without leaving the workspace
 
 Fixed Skip to workspace routing to Overview from other views. Activating the

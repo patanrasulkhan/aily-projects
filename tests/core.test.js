@@ -959,3 +959,53 @@ test('skip link retains its native landmark target and visible keyboard styles',
   assert(css.includes('.skip:focus'));assert(css.includes('#main:focus-visible'));
 });
 log('DAYLIGHT_SKIP_WORKSPACE_TESTS_PASSED='+passed);
+
+// Recovery must include the note still on screen when browser storage is full.
+function noteRecoveryBrowser(raw){
+  const nodes={},events={},windowEvents={},blobs=[],downloads=[],revoked=[],pending=[];
+  let stored=raw===undefined?JSON.stringify(noteFixture()):raw,fail=false,readFail=false,writes=0,html='';
+  const decode=s=>s.replace(/&quot;/g,'"').replace(/&#39;/g,"'").replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&amp;/g,'&');
+  const node=s=>nodes[s]||(nodes[s]={value:'',innerHTML:'',textContent:'',open:false,focus(){},showModal(){this.open=true;},close(){this.open=false;},classList:{add(){},remove(){},toggle(){}}});
+  Object.defineProperty(node('#main'),'innerHTML',{get(){return html;},set(value){html=value;for(const id of ['note-title','note-body','note-folder']){
+    const input=new RegExp('<input[^>]*id="'+id+'"[^>]*value="([^"]*)"').exec(html),area=new RegExp('<textarea[^>]*id="'+id+'"[^>]*>([\\s\\S]*?)</textarea>').exec(html);
+    node('#'+id).value=decode(input?input[1]:area?area[1]:'');
+  }}});
+  const doc={querySelector(s){if(s==='#note-body'&&!html.includes('id="note-body"'))return null;return node(s);},querySelectorAll(){return [];},addEventListener(k,fn){events[k]=fn;},createElement(){return {click(){downloads.push({href:this.href,name:this.download});}};}};
+  new Function('window','document','localStorage','location','setInterval','setTimeout','clearTimeout','Blob','URL',themeFile('web/app.js'))(
+    {Daylight:C,addEventListener(k,fn){windowEvents[k]=fn;}},doc,{getItem(){if(readFail)throw Error('Blocked');return stored;},setItem(k,v){writes++;if(fail)throw Error('Full');stored=v;}},{hash:'#notes'},()=>{},fn=>{pending.push(fn);},()=>{},
+    function(parts,options){blobs.push({parts,options});},{createObjectURL(){return 'blob:local-backup';},revokeObjectURL(url){revoked.push(url);}});
+  return {node,blobs,downloads,revoked,raw:()=>stored,writes:()=>writes,fail(v){fail=v;},readFail(v){readFail=v;},finish(){pending.forEach(fn=>fn());},
+    draft(title,body,folder){node('#note-title').value=title;node('#note-body').value=body;node('#note-folder').value=folder;},
+    click(action){events.click({target:{closest(s){return s==='[data-action]'?{dataset:{action}}:null;}}});},
+    leave(){const event={prevented:false,preventDefault(){this.prevented=true;}};windowEvents.beforeunload(event);return event;}};
+}
+test('failed note save exports a restorable complete draft without changing stored workspace or editor',()=>{
+  const b=noteRecoveryBrowser(),before=b.raw(),original=JSON.parse(before);b.draft('  Recovery ✦  ','First line\n<Keep every word> & "quotes"','  Recovery folder  ');b.fail(true);
+  b.click('settings');b.click('export');eq(b.raw(),before);assert(b.node('#editor').open);
+  eq(b.blobs.length,1);eq(b.blobs[0].options.type,'application/json');
+  const backup=JSON.parse(b.blobs[0].parts.join('')),note=backup.notes.find(n=>n.id==='b');
+  eq(note.title,'Recovery ✦');eq(note.body,'First line\n<Keep every word> & "quotes"');eq(note.folder,'Recovery folder');assert(note.pinned);assert(!isNaN(Date.parse(note.updatedAt)));
+  eq(backup.notes.filter(n=>n.id!=='b'),original.notes.filter(n=>n.id!=='b'));
+  for(const key of ['version','sample','tasks','habits','sessions','timer'])eq(backup[key],original[key]);
+  eq(C.normalize(backup),backup);eq(b.node('#note-title').value,'  Recovery ✦  ');assert(b.node('#note-save').textContent.includes('Could not save'));
+  assert(b.node('#toast').textContent.includes('unsaved note'));eq(b.downloads,[{href:'blob:local-backup',name:'daylight-backup-'+C.dayKey()+'.json'}]);
+  b.finish();eq(b.revoked,['blob:local-backup']);
+});
+test('backup retry saves draft and subsequent exports avoid redundant writes and clear empty folders',()=>{
+  const b=noteRecoveryBrowser();b.draft('   ','Draft after retry','');b.fail(true);b.click('export');
+  const first=JSON.parse(b.blobs[0].parts[0]).notes.find(n=>n.id==='b');eq(first.title,'Untitled note');assert(!('folder' in first));
+  b.fail(false);b.click('export');const saved=JSON.parse(b.raw());eq(saved.notes.find(n=>n.id==='b').body,'Draft after retry');
+  eq(JSON.parse(b.blobs[1].parts[0]),saved);eq(b.node('#note-save').textContent,'Saved on this device');eq(b.node('#toast').textContent,'Backup downloaded.');
+  const writes=b.writes();b.click('export');eq(b.writes(),writes);eq(C.normalize(saved),saved);
+});
+test('leaving warns only when the final note save fails and retry permits leaving',()=>{
+  const b=noteRecoveryBrowser();eq(b.leave().prevented,false);eq(b.writes(),0);
+  b.draft('Still here','Unsaved body','Home');b.fail(true);const before=b.raw(),event=b.leave();assert(event.prevented);eq(event.returnValue,'');eq(b.raw(),before);eq(b.node('#note-body').value,'Unsaved body');
+  b.fail(false);const retry=b.leave();assert(!retry.prevented);assert(!('returnValue' in retry));eq(JSON.parse(b.raw()).notes.find(n=>n.id==='b').body,'Unsaved body');
+  const writes=b.writes();assert(!b.leave().prevented);eq(b.writes(),writes);
+});
+test('recovery exports unreadable storage verbatim and refuses a misleading backup when reading fails',()=>{
+  const b=noteRecoveryBrowser('{broken original');b.click('export');eq(b.blobs[0].parts,['{broken original']);eq(b.writes(),0);assert(!b.leave().prevented);
+  b.readFail(true);b.click('export');eq(b.blobs.length,1);eq(b.downloads.length,1);assert(b.node('#toast').textContent.includes('Could not read the original workspace'));eq(b.writes(),0);
+});
+log('DAYLIGHT_NOTE_RECOVERY_TESTS_PASSED='+passed);
