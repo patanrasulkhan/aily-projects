@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-18 — Preserve note drafts at timer completion
+
+Automatic focus timer completion now saves a pending note before updating the
+workspace. If storage rejects the draft, the editor stays intact and completion
+waits for a successful retry. The completed session is recorded once after the
+save. Existing browser-local storage and version 1 backups are unchanged.
+
+Validation: all 125 tests passed in JavaScriptCore under America/New_York and
+Pacific/Auckland. Two appended browser-boundary regressions cover pending
+title, body and folder, failed saves, retry and single session recording. Native
+keyboard and screen-reader walkthroughs remain outstanding.
+
 ## 2026-11-17 — Keep note search consistent after a failed save
 
 When a pending note draft cannot be saved, attempting to change note search

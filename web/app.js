@@ -188,6 +188,6 @@ function changeTask(id,patch,attribute='data-task-status'){
     if(!flushNote()){event.preventDefault();event.returnValue='';}
   });
   window.addEventListener('storage',event=>{if(event.key===KEY){try{state=event.newValue?C.normalize(JSON.parse(event.newValue)):C.empty();corrupt=false;render();toast('Workspace updated from another tab.');}catch{toast('Another tab saved an unreadable workspace. Export a backup.');}}});
-  setInterval(()=>{if(state.timer){const next=C.finishTimer(state);if(next!==state){if(commit(next))toast('Session complete. Take a breath — you earned it.');}else document.querySelectorAll('[data-timer]').forEach(el=>el.textContent=timerText());}},1000);
+  setInterval(()=>{if(state.timer){const next=C.finishTimer(state);if(next!==state){if(flushNote()&&commit(C.finishTimer(state)))toast('Session complete. Take a breath — you earned it.');}else document.querySelectorAll('[data-timer]').forEach(el=>el.textContent=timerText());}},1000);
   render();
 })();

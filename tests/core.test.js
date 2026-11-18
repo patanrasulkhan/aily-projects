@@ -1021,3 +1021,24 @@ test('failed note save restores the applied search and allows a later retry',()=
   assert(b.html().includes('No notes match'));eq(b.state().notes.find(n=>n.id==='b').body,'Unsaved garden draft');
 });
 log('DAYLIGHT_NOTE_SEARCH_RECOVERY_TESTS_PASSED='+passed);
+
+// A background timer completion must not replace a pending note draft.
+function timerDraftBrowser(){
+  const initial=noteFixture();initial.timer=C.startTimer(C.empty(),1,Date.now()-120000).timer;
+  let stored=initial,fail=false,interval,html='';const nodes={},handlers={};
+  const node=s=>nodes[s]||(nodes[s]={value:'',textContent:'',innerHTML:'',focus(){},classList:{add(){},remove(){},toggle(){}}});
+  Object.defineProperty(node('#main'),'innerHTML',{get(){return html;},set(value){html=value;for(const id of ['note-title','note-body','note-folder']){const input=new RegExp('<input[^>]*id="'+id+'"[^>]*value="([^"]*)"').exec(html),area=new RegExp('<textarea[^>]*id="'+id+'"[^>]*>([\\s\\S]*?)</textarea>').exec(html);node('#'+id).value=input?input[1]:area?area[1]:'';}}});
+  const doc={querySelector(s){if(s==='#note-body'&&!html.includes('id="note-body"'))return null;return node(s);},querySelectorAll(){return [];},addEventListener(k,fn){handlers[k]=fn;}};
+  new Function('window','document','localStorage','location','setInterval','setTimeout','clearTimeout',themeFile('web/app.js'))(
+    {Daylight:C,addEventListener(){}},doc,{getItem(){return JSON.stringify(stored);},setItem(k,v){if(fail)throw Error('Full');stored=JSON.parse(v);}},{hash:'#notes'},fn=>{interval=fn;},()=>{},()=>{});
+  return {node,state:()=>stored,fail(v){fail=v;},tick(){interval();},draft(){node('#note-title').value='Pending title';node('#note-body').value='Pending words';node('#note-folder').value='Work';handlers.input({target:{id:'note-body'}});}};
+}
+test('timer completion saves a pending note before rendering and records the session once',()=>{
+  const b=timerDraftBrowser();b.draft();b.tick();const n=b.state().notes.find(n=>n.id==='b');
+  eq([n.title,n.body,n.folder],['Pending title','Pending words','Work']);eq(b.node('#note-body').value,'Pending words');eq(b.state().sessions.length,1);eq(b.state().timer,null);b.tick();eq(b.state().sessions.length,1);eq(C.normalize(b.state()),b.state());
+});
+test('timer completion waits when the note cannot save and succeeds on retry',()=>{
+  const b=timerDraftBrowser();b.draft();b.fail(true);const before=JSON.stringify(b.state());b.tick();eq(JSON.stringify(b.state()),before);eq(b.node('#note-body').value,'Pending words');assert(b.node('#note-save').textContent.includes('Could not save'));
+  b.fail(false);b.tick();eq(b.state().notes.find(n=>n.id==='b').body,'Pending words');eq(b.state().sessions.length,1);eq(b.state().timer,null);
+});
+log('DAYLIGHT_TIMER_DRAFT_TESTS_PASSED='+passed);
