@@ -1042,3 +1042,13 @@ test('timer completion waits when the note cannot save and succeeds on retry',()
   b.fail(false);b.tick();eq(b.state().notes.find(n=>n.id==='b').body,'Pending words');eq(b.state().sessions.length,1);eq(b.state().timer,null);
 });
 log('DAYLIGHT_TIMER_DRAFT_TESTS_PASSED='+passed);
+
+// A failed draft save must not leave an unapplied global search in the header.
+test('global search restores its last accepted query when a note save fails',()=>{
+  const b=noteBrowser();b.input('global-search','garden');eq(b.loc.hash,'#search');
+  b.loc.hash='#notes';b.input('note-body','Unsaved words');const before=JSON.stringify(b.state()),html=b.html();b.fail(true);
+  b.input('global-search','missing');eq(b.node('#global-search').value,'garden');eq(b.loc.hash,'#notes');eq(b.html(),html);
+  eq(b.node('#note-body').value,'Unsaved words');eq(JSON.stringify(b.state()),before);assert(b.node('#note-save').textContent.includes('Could not save'));
+  b.fail(false);b.input('global-search','missing');eq(b.node('#global-search').value,'missing');eq(b.loc.hash,'#search');eq(b.state().notes.find(n=>n.id==='b').body,'Unsaved words');
+});
+log('DAYLIGHT_GLOBAL_SEARCH_RECOVERY_TESTS_PASSED='+passed);

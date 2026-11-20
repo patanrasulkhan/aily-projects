@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-19 — Restore global search after a failed save
+
+- Fixed global search retaining an unapplied query when a pending note cannot be saved. The previous query and open draft remain in place; a later search retries the save.
+- Validation: all 126 tests passed in JavaScriptCore in America/New_York and Pacific/Auckland, including an appended failure-and-retry regression. Native browser keyboard and screen-reader walkthrough remains outstanding. Storage and backup formats are unchanged.
+
 ## 2026-11-18 — Preserve note drafts at timer completion
 
 Automatic focus timer completion now saves a pending note before updating the
