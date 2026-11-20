@@ -35,6 +35,7 @@ in the user's browser and existing backups must remain compatible.
   - [x] Restore the applied note search after a failed draft save (2026-11-17)
   - [x] Preserve pending note drafts when a focus timer completes (2026-11-18)
   - [x] Restore the applied global search after a failed draft save (2026-11-19)
+  - [x] Preserve pending note drafts when another tab updates the workspace (2026-11-20)
   - [ ] Complete a native browser keyboard and screen-reader walkthrough
 
 Each daily run should finish one meaningful item or fix an observed bug,
@@ -42,7 +43,17 @@ add regression coverage, and describe the change in CHANGELOG.md. Avoid busywork
 new dependencies, remote APIs, accounts, payments, or storing data in the repository.
 Keep the current UI polished and responsive. Do not delete or weaken existing tests.
 
-## Latest validation — 2026-11-19
+## Latest validation — 2026-11-20
+
+Cross-tab workspace updates preserve an open note draft. Unrelated updates are
+merged; concurrent edits or deletion of the same note retain the incoming
+version and save the draft as a separate note. Failed writes leave the draft open
+for retry. If the incoming workspace already has 1,000 notes, the draft remains
+open and saving is blocked with backup-before-reload guidance. All 130 tests
+passed in JavaScriptCore in America/New_York and Pacific/Auckland. Native browser
+keyboard and screen-reader inspection remains open.
+
+## Previous validation — 2026-11-19
 
 Fixed global search after a failed note save: the header restores its last
 accepted query, keeping it consistent with the current view while preserving

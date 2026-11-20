@@ -7,7 +7,7 @@
   let state, storageError=false, corrupt=false, selectedNote='', focusMinutes=25, focusLabel='Focus', formKind='', editId='', taskView='board', taskFilters={query:'',priority:'',project:'',due:''};
   let focusWeekOffset=0, tourStep=0, tourOpener, renderedView;
   let globalSearchQuery=$('#global-search').value;
-  let toastTimeout, noteTimeout, noteFilters={query:'',folder:''};
+  let toastTimeout, noteTimeout, noteFilters={query:'',folder:''}, crossTabBlocked=false;
   try {const raw=localStorage.getItem(KEY);state=raw?C.normalize(JSON.parse(raw)):C.empty();} catch {state=C.empty();storageError=true;corrupt=true;}
   const now = () => new Date();
   const formatDate = (date,options={month:'short',day:'numeric'}) => new Date(date+'T12:00:00').toLocaleDateString(undefined,options);
@@ -97,7 +97,7 @@
     return {...state,notes:state.notes.map(n=>{if(n.id!==selectedNote)return n;const updated={...n,title,body,updatedAt:now().toISOString()};if(folder)updated.folder=folder;else delete updated.folder;return updated;})};
   }
   function flushNote(){
-    clearTimeout(noteTimeout);const next=noteSnapshot();if(next===state)return true;
+    clearTimeout(noteTimeout);if(crossTabBlocked){if($('#note-save'))$('#note-save').textContent='Another tab changed this workspace. Export a backup of this draft before reloading.';return false;}const next=noteSnapshot();if(next===state)return true;
     const saved=save(next);if(saved){const folders=[...new Set(state.notes.map(n=>n.folder).filter(Boolean))].sort();if($('#note-folder-filter'))$('#note-folder-filter').innerHTML=noteFolderOptions(folders);if($('#note-folders'))$('#note-folders').innerHTML=folders.map(f=>`<option value="${e(f)}"></option>`).join('');}if($('#note-save'))$('#note-save').textContent=saved?'Saved on this device':'Could not save. Keep this note open and try again.';return saved;
   }
   function download(){
@@ -188,7 +188,22 @@ function changeTask(id,patch,attribute='data-task-status'){
   window.addEventListener('beforeunload',event=>{
     if(!flushNote()){event.preventDefault();event.returnValue='';}
   });
-  window.addEventListener('storage',event=>{if(event.key===KEY){try{state=event.newValue?C.normalize(JSON.parse(event.newValue)):C.empty();corrupt=false;render();toast('Workspace updated from another tab.');}catch{toast('Another tab saved an unreadable workspace. Export a backup.');}}});
+  window.addEventListener('storage',event=>{if(event.key===KEY){try{
+    const incoming=event.newValue?C.normalize(JSON.parse(event.newValue)):C.empty();
+    const draft=noteSnapshot(), pending=draft!==state, original=state.notes.find(n=>n.id===selectedNote);
+    if(pending&&original){
+      const remote=incoming.notes.find(n=>n.id===selectedNote);
+      // Keep both versions when the same note was edited or removed elsewhere.
+      if(!remote||JSON.stringify(remote)!==JSON.stringify(original)){
+        if(incoming.notes.length>=1000){crossTabBlocked=true;clearTimeout(noteTimeout);if($('#note-save'))$('#note-save').textContent='Another tab changed this workspace. Export a backup of this draft before reloading.';toast('Workspace is full. Export your draft backup before reloading.');return;}
+        const copy={...original,id:C.uid()};incoming.notes=[copy,...incoming.notes];selectedNote=copy.id;
+      }
+      state=incoming;corrupt=false;crossTabBlocked=false;
+      if(!flushNote()){toast('Another tab updated the workspace. Your draft is still open; retry saving or export a backup.');return;}
+      render();toast(remote&&JSON.stringify(remote)===JSON.stringify(original)?'Workspace updated from another tab; your draft was saved.':'Workspace updated from another tab; your draft was saved as a separate note.');return;
+    }
+    state=incoming;corrupt=false;crossTabBlocked=false;render();toast('Workspace updated from another tab.');
+  }catch{toast('Another tab saved an unreadable workspace. Export a backup.');}}});
   setInterval(()=>{if(state.timer){const next=C.finishTimer(state);if(next!==state){if(flushNote()&&commit(C.finishTimer(state)))toast('Session complete. Take a breath — you earned it.');}else document.querySelectorAll('[data-timer]').forEach(el=>el.textContent=timerText());}},1000);
   render();
 })();

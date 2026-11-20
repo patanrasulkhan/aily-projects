@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-20
+
+- Preserve unsaved note drafts when another tab updates the workspace. Incoming
+  changes are retained; concurrent changes or deletion of the edited note produce
+  a separate draft note. Failed saves keep the editor available for retry. When
+  the incoming workspace is at the 1,000-note limit, saving is blocked and the
+  user is directed to export a draft backup before reloading.
+- Validation: all 130 tests passed in JavaScriptCore under America/New_York and
+  Pacific/Auckland, including four appended cross-tab regressions. The tests use
+  a browser boundary harness; native multi-tab and screen-reader behavior were
+  not inspected. Version 1 storage and backup formats remain unchanged.
+
 ## 2026-11-19 — Restore global search after a failed save
 
 - Fixed global search retaining an unapplied query when a pending note cannot be saved. The previous query and open draft remain in place; a later search retries the save.

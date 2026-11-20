@@ -1052,3 +1052,35 @@ test('global search restores its last accepted query when a note save fails',()=
   b.fail(false);b.input('global-search','missing');eq(b.node('#global-search').value,'missing');eq(b.loc.hash,'#search');eq(b.state().notes.find(n=>n.id==='b').body,'Unsaved words');
 });
 log('DAYLIGHT_GLOBAL_SEARCH_RECOVERY_TESTS_PASSED='+passed);
+
+// Cross-tab updates must not replace an open, unsaved note.
+function crossTabDraftBrowser(){
+  let stored=noteFixture(), fail=false, html='';const nodes={},events={};
+  const node=s=>nodes[s]||(nodes[s]={value:'',textContent:'',innerHTML:'',focus(){},classList:{add(){},remove(){},toggle(){}}});
+  Object.defineProperty(node('#main'),'innerHTML',{get(){return html;},set(value){html=value;for(const id of ['note-title','note-body','note-folder']){const input=new RegExp('<input[^>]*id="'+id+'"[^>]*value="([^"]*)"').exec(html),area=new RegExp('<textarea[^>]*id="'+id+'"[^>]*>([\\s\\S]*?)</textarea>').exec(html);node('#'+id).value=input?input[1]:area?area[1]:'';}}});
+  const doc={querySelector(s){if(s==='#note-body'&&!html.includes('id="note-body"'))return null;return node(s);},querySelectorAll(){return [];},addEventListener(k,fn){events[k]=fn;}};
+  new Function('window','document','localStorage','location','setInterval','setTimeout','clearTimeout',themeFile('web/app.js'))(
+    {Daylight:C,addEventListener(k,fn){events['window-'+k]=fn;}},doc,{getItem(){return JSON.stringify(stored);},setItem(k,v){if(fail)throw Error('Full');stored=JSON.parse(v);}},{hash:'#notes'},()=>{},()=>{},()=>{});
+  return {node,state:()=>stored,fail(v){fail=v;},draft(){node('#note-body').value='Local draft';},external(s){stored=s;events['window-storage']({key:'daylight.workspace.v1',newValue:JSON.stringify(s)});},save(){events.click({target:{closest(s){return s==='[data-action]'?{dataset:{action:'save-note'}}:null;}}});}};
+}
+test('cross-tab updates preserve a pending draft and unrelated incoming changes',()=>{
+  const b=crossTabDraftBrowser(),remote=noteFixture();b.draft();remote.tasks=C.addTask(C.empty(),{title:'From another tab'}).tasks;b.external(remote);
+  eq(b.state().tasks[0].title,'From another tab');eq(b.state().notes.find(n=>n.id==='b').body,'Local draft');eq(b.node('#note-body').value,'Local draft');eq(C.normalize(b.state()),b.state());
+});
+test('cross-tab edits or deletion keep the incoming version and save the draft separately',()=>{
+  for(const deleted of [false,true]){const b=crossTabDraftBrowser(),remote=noteFixture();b.draft();if(deleted)remote.notes=remote.notes.filter(n=>n.id!=='b');else remote.notes.find(n=>n.id==='b').body='Remote edit';b.external(remote);
+    const original=b.state().notes.find(n=>n.id==='b');if(deleted)assert(!original);else eq(original.body,'Remote edit');
+    assert(b.state().notes.some(n=>n.id!=='b'&&n.body==='Local draft'));eq(C.normalize(b.state()),b.state());}
+});
+test('cross-tab draft remains open after a failed write and can be retried',()=>{
+  const b=crossTabDraftBrowser(),remote=noteFixture();remote.notes.find(n=>n.id==='b').body='Remote edit';b.draft();b.fail(true);b.external(remote);
+  eq(b.node('#note-body').value,'Local draft');eq(b.state().notes.find(n=>n.id==='b').body,'Remote edit');
+  b.fail(false);b.save();assert(b.state().notes.some(n=>n.id!=='b'&&n.body==='Local draft'));eq(b.state().notes.find(n=>n.id==='b').body,'Remote edit');
+});
+log('DAYLIGHT_CROSS_TAB_DRAFT_TESTS_PASSED='+passed);
+test('a full incoming workspace keeps the draft open and blocks overwriting it',()=>{
+  const b=crossTabDraftBrowser(),remote=noteFixture();remote.notes=Array.from({length:1000},(_,i)=>({id:'remote-'+i,title:'Remote '+i,body:'',pinned:false,updatedAt:fixed.toISOString()}));
+  b.draft();b.external(remote);eq(b.node('#note-body').value,'Local draft');assert(b.node('#note-save').textContent.includes('Export a backup'));
+  b.save();eq(b.state().notes.length,1000);assert(!b.state().notes.some(n=>n.body==='Local draft'));
+});
+log('DAYLIGHT_CROSS_TAB_CAPACITY_TESTS_PASSED='+passed);
