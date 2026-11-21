@@ -36,6 +36,7 @@ in the user's browser and existing backups must remain compatible.
   - [x] Preserve pending note drafts when a focus timer completes (2026-11-18)
   - [x] Restore the applied global search after a failed draft save (2026-11-19)
   - [x] Preserve pending note drafts when another tab updates the workspace (2026-11-20)
+  - [x] Give overview task and habit links descriptive visible names (2026-11-21)
   - [ ] Complete a native browser keyboard and screen-reader walkthrough
 
 Each daily run should finish one meaningful item or fix an observed bug,
@@ -43,7 +44,15 @@ add regression coverage, and describe the change in CHANGELOG.md. Avoid busywork
 new dependencies, remote APIs, accounts, payments, or storing data in the repository.
 Keep the current UI polished and responsive. Do not delete or weaken existing tests.
 
-## Latest validation — 2026-11-20
+## Latest validation — 2026-11-21
+
+Overview links now name their task and habit destinations in visible text, and
+their decorative arrows are hidden from assistive technology. All 131 tests
+passed in JavaScriptCore in America/New_York and Pacific/Auckland, including an
+appended overview regression. Native browser keyboard, screen-reader, and visual
+inspection remain open. Persistence and backups are unchanged.
+
+## Previous validation — 2026-11-20
 
 Cross-tab workspace updates preserve an open note draft. Unrelated updates are
 merged; concurrent edits or deletion of the same note retain the incoming

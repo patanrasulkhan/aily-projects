@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-21 — Descriptive overview navigation
+
+The overview links to tasks and habits now say “View all tasks” and “View all
+habits” so their destinations are clear both visually and when navigating a
+list of links. Decorative arrows are hidden from assistive technology. Existing
+routes and browser-local workspace data are unchanged.
+
+Validation: all 131 tests passed in JavaScriptCore in America/New_York and
+Pacific/Auckland, including an appended regression for both links and no storage
+writes. Native browser keyboard, screen-reader, and visual inspection remain
+outstanding.
+
 ## 2026-11-20
 
 - Preserve unsaved note drafts when another tab updates the workspace. Incoming

@@ -1084,3 +1084,12 @@ test('a full incoming workspace keeps the draft open and blocks overwriting it',
   b.save();eq(b.state().notes.length,1000);assert(!b.state().notes.some(n=>n.body==='Local draft'));
 });
 log('DAYLIGHT_CROSS_TAB_CAPACITY_TESTS_PASSED='+passed);
+
+// Overview links remain understandable when read outside their card context.
+test('overview task and habit links identify their destinations in visible text',()=>{
+  const b=shortcutBrowser(),html=b.node('#main').innerHTML;
+  assert(html.includes('<a href="#tasks" class="small-link">View all tasks <span aria-hidden="true">↗</span></a>'));
+  assert(html.includes('<a href="#habits" class="small-link">View all habits <span aria-hidden="true">↗</span></a>'));
+  eq(b.saves(),0);
+});
+log('DAYLIGHT_OVERVIEW_LINK_TESTS_PASSED='+passed);
