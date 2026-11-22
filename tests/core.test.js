@@ -1093,3 +1093,16 @@ test('overview task and habit links identify their destinations in visible text'
   eq(b.saves(),0);
 });
 log('DAYLIGHT_OVERVIEW_LINK_TESTS_PASSED='+passed);
+
+// Note list controls should not announce the entire potentially long preview.
+test('note list names identify title folder and pin without including the body',()=>{
+  const s=noteFixture();s.notes[0].title='Ideas & "plans"';s.notes[0].folder='<Work>';s.notes[0].body='A very long private preview';s.notes[0].pinned=true;
+  s.notes[1].folder='';s.notes[1].pinned=false;
+  const b=noteBrowser(s),html=b.html();
+  assert(html.includes('aria-label="Ideas &amp; &quot;plans&quot; · &lt;Work&gt; · Pinned"'));
+  assert(html.includes('A very long private preview'));
+  assert(!html.includes('aria-label="A very long private preview'));
+  assert(html.includes(' · Unfiled" aria-pressed='));
+  assert(html.includes('aria-pressed="true"'));eq(b.saves(),0);
+});
+log('DAYLIGHT_NOTE_ACCESSIBLE_NAMES_TESTS_PASSED='+passed);

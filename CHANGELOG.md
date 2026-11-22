@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-11-22 — Concise note list names
+
+Note list buttons now have accessible names containing the note title, folder,
+and pin state. This keeps potentially long note previews from being read as part
+of every button name while preserving visible previews and selection states.
+Names escape user text; unfiled notes are identified as such.
+
+Validation: all 132 tests passed in JavaScriptCore in America/New_York and
+Pacific/Auckland. The appended regression covers escaped titles and folders,
+pinned and unfiled notes, visible previews, selected state, and no storage writes.
+Native browser keyboard and screen-reader inspection remains outstanding.
+Persistence, backups, and the browser-local data policy are unchanged.
+
 ## 2026-11-21 — Descriptive overview navigation
 
 The overview links to tasks and habits now say “View all tasks” and “View all
