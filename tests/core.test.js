@@ -1106,3 +1106,15 @@ test('note list names identify title folder and pin without including the body',
   assert(html.includes('aria-pressed="true"'));eq(b.saves(),0);
 });
 log('DAYLIGHT_NOTE_ACCESSIBLE_NAMES_TESTS_PASSED='+passed);
+
+// Global search note results use the same concise names as the note list.
+test('global search note names identify title folder and pin without announcing the preview',()=>{
+  const s=noteFixture();s.notes[0].title='Ideas & "plans"';s.notes[0].folder='<Work>';s.notes[0].body='Find this private preview';s.notes[0].pinned=true;
+  s.notes[1].title='Second';s.notes[1].folder='';s.notes[1].body='Find this too';s.notes[1].pinned=false;
+  const b=noteBrowser(s);b.loc.hash='#search';b.input('global-search','Find this');const html=b.html();
+  assert(html.includes('aria-label="Ideas &amp; &quot;plans&quot; · &lt;Work&gt; · Pinned" data-action="open-note"'));
+  assert(html.includes('aria-label="Second · Unfiled" data-action="open-note"'));
+  assert(html.includes('Find this private preview'));assert(!html.includes('aria-label="Find this private preview'));
+  eq(b.saves(),0);
+});
+log('DAYLIGHT_SEARCH_NOTE_ACCESSIBLE_NAMES_TESTS_PASSED='+passed);

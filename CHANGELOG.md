@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-24
+
+- Made global search note result names concise for assistive technology: title, folder (or Unfiled), and pin state replace the full body preview in the accessible name. The visible preview and search behavior remain intact.
+- Appended a regression covering escaped text, pinned and unfiled notes, visible previews, and no storage writes. All 133 tests passed in JavaScriptCore under America/New_York and Pacific/Auckland. Native browser keyboard and screen-reader inspection remains outstanding. Persistence and backups are unchanged.
+
 ## 2026-11-22 — Concise note list names
 
 Note list buttons now have accessible names containing the note title, folder,
