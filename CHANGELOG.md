@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-28 — Clear task edit button names
+
+Task title buttons in the overview, task list, and global search now announce
+“Edit task” along with the task title, making their action clear to screen-reader
+users while preserving the visible title and existing editor behavior. Special
+characters in titles remain escaped.
+
+Validation: all 134 tests passed in JavaScriptCore in America/New_York and
+Pacific/Auckland. The appended regression covers all three views, escaped titles,
+editor opening, and no storage writes. Native browser keyboard and screen-reader
+inspection remains open. Stored data and version 1 backups are unchanged.
+
 ## 2026-11-24
 
 - Made global search note result names concise for assistive technology: title, folder (or Unfiled), and pin state replace the full body preview in the accessible name. The visible preview and search behavior remain intact.

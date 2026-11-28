@@ -39,6 +39,7 @@ in the user's browser and existing backups must remain compatible.
   - [x] Give overview task and habit links descriptive visible names (2026-11-21)
   - [x] Give note list buttons concise accessible names with title, folder, and pin state (2026-11-22)
   - [x] Give global search note results concise accessible names with title, folder, and pin state (2026-11-24)
+  - [x] Identify task title buttons as edit actions in overview, task list, and search (2026-11-28)
   - [ ] Complete a native browser keyboard and screen-reader walkthrough
 
 Each daily run should finish one meaningful item or fix an observed bug,
@@ -46,7 +47,15 @@ add regression coverage, and describe the change in CHANGELOG.md. Avoid busywork
 new dependencies, remote APIs, accounts, payments, or storing data in the repository.
 Keep the current UI polished and responsive. Do not delete or weaken existing tests.
 
-## Latest validation — 2026-11-24
+## Latest validation — 2026-11-28
+
+Task title buttons in overview, list, and search now identify their edit action
+to assistive technology. All 134 tests passed in JavaScriptCore in
+America/New_York and Pacific/Auckland, including an appended regression. Native
+browser keyboard and screen-reader inspection remains open. Persistence and
+backups are unchanged.
+
+## Previous validation — 2026-11-24
 
 Global search note results now expose title, folder, and pin state without
 announcing the full preview. All 133 tests passed in JavaScriptCore in

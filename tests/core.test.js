@@ -1118,3 +1118,14 @@ test('global search note names identify title folder and pin without announcing 
   eq(b.saves(),0);
 });
 log('DAYLIGHT_SEARCH_NOTE_ACCESSIBLE_NAMES_TESTS_PASSED='+passed);
+
+// Task title controls should identify the editor action in every text-based view.
+test('overview, task list and search identify task title buttons as edit actions',()=>{
+  const s=C.addTask(C.empty(),{title:'Plan <tea> & "cake"'},fixed);
+  const label='aria-label="Edit task: Plan &lt;tea&gt; &amp; &quot;cake&quot;"';
+  const overview=shortcutBrowser(s);assert(overview.node('#main').innerHTML.includes(label));eq(overview.saves(),0);
+  const list=repeatBrowser(s);list.click('task-view',null,'list');assert(list.node('#main').innerHTML.includes(label));eq(list.saves(),0);
+  const search=noteBrowser(s);search.loc.hash='#search';search.input('global-search','Plan');assert(search.html().includes(label));eq(search.saves(),0);
+  search.click('edit-task',s.tasks[0].id);assert(search.node('#editor-fields').innerHTML.includes('Plan &lt;tea&gt; &amp; &quot;cake&quot;'));eq(search.saves(),0);
+});
+log('DAYLIGHT_TASK_EDIT_NAMES_TESTS_PASSED='+passed);
